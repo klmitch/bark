@@ -15,6 +15,10 @@
 
 import abc
 from curses import ascii
+import os
+import thread
+import time
+import urlparse
 
 
 class Modifier(object):
@@ -261,3 +265,577 @@ class StringConversion(Conversion):
         """
 
         return self.string
+
+
+class AddressConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        client_addr = request.environ.get('REMOTE_ADDR', '-')
+        if (self.modifier.param != 'c' and
+                'bark.useragent_ip' in request.environ):
+            client_addr = request.environ['bark.useragent_ip']
+
+        return client_addr
+
+
+class CookieConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        return self.escape(request.cookies.get(self.modifier.param, '-'))
+
+
+class EnvironmentConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        return self.escape(os.environ.get(self.modifier.param, '-'))
+
+
+class FilenameConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        return self.escape(request.path)
+
+
+class FirstLineConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        # Chop up the URL
+        uri = urlparse.urlparse(request.url)
+
+        # If there's a password, recompute the URI without it
+        if uri.password:
+            netloc = "%s:%s@" % (uri.username or "", "XXXXXXXX")
+            if uri.hostname:
+                netloc += uri.hostname
+            if uri.port is not None:
+                netloc += ":%d" % uri.port
+
+            uri = urlparse.ParseResult(uri[0], netloc, uri[2], uri[3],
+                                       uri[4], uri[5])
+
+        return self.escape("%s %s %s" % (request.method, uri.geturl(),
+                                         request.environ['SERVER_PROTOCOL']))
+
+
+class HostnameConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        return self.escape(request.remote_addr or "")
+
+
+class KeepAliveConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        return "0"
+
+
+class LocalAddressConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        # For eventlet WSGI server, this will be the server IP address
+        return request.environ['SERVER_NAME']
+
+
+class ProcessIDConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        if self.modifier.param is None or self.modifier.param == 'pid':
+            return str(os.getpid())
+        elif self.modifier.param == 'tid':
+            return str(thread.get_ident())
+        elif self.modifier.param == 'hextid':
+            return hex(thread.get_ident())
+        return self.modifier.param
+
+
+class ProtocolConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        return self.escape(request.environ['SERVER_PROTOCOL'])
+
+
+class QueryStringConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        qstr = self.escape(request.query_string)
+
+        return '?%s' % qstr if qstr else ''
+
+
+class RemoteUserConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        # None specified
+        if request.remote_user is None:
+            return "-"
+        elif not request.remote_user:
+            # Empty string...
+            return '""'
+        return self.escape(request.remote_user)
+
+
+class RequestHeaderConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        return self.escape(request.headers.get(self.modifier.param, ''))
+
+
+class RequestMethodConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        return self.escape(request.method)
+
+
+class ResponseHeaderConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        return self.escape(response.headers.get(self.modifier.param, ''))
+
+
+class ResponseSizeConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        size = response.content_length
+        if not size:
+            size = "-" if self.conv_chr == 'b' else 0
+
+        return str(size)
+
+
+class ServerNameConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        return self.escape(request.environ['HTTP_HOST'])
+
+
+class ServerPortConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        if self.modifier.param in (None, 'canonical', 'local'):
+            return request.environ['SERVER_PORT']
+
+        # Remote user port is not available in the environment
+        return "-"
+
+
+class ServeTimeConversion(Conversion):
+    def prepare(self, request):
+        """
+        Performs any preparation necessary for the Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+
+        :returns: A (possibly empty) dictionary of values needed by
+                  the convert() method.
+        """
+
+        return {'start': time.time()}
+
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        delta = time.time() - data['start']
+
+        if self.conv_chr == 'D':
+            delta *= 1000000
+
+        return str(int(delta))
+
+
+class StatusConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        return str(response.status_code)
+
+
+class TimeConversion(Conversion):
+    def prepare(self, request):
+        """
+        Performs any preparation necessary for the Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+
+        :returns: A (possibly empty) dictionary of values needed by
+                  the convert() method.
+        """
+
+        return {'start': time.time()}
+
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        # Determine which time to use
+        fmtstr = self.modifier.param
+        if fmtstr is None:
+            log_time = data['start']
+        elif fmtstr == 'begin' or fmtstr.startswith('begin:'):
+            log_time = data['start']
+            if fmtstr == 'begin':
+                fmtstr = None
+            else:
+                fmtstr = fmtstr[len('begin:'):]
+        elif fmtstr == 'end' or fmtstr.startswith('end:'):
+            log_time = time.time()
+            if fmtstr == 'end':
+                fmtstr = None
+            else:
+                fmtstr = fmtstr[len('end:'):]
+        else:
+            log_time = data['start']
+
+        # Next, determine the format to use
+        if fmtstr is None:
+            fmtstr = "[%d/%b/%Y:%H:%M:%S %z]"
+        elif fmtstr in ('sec', 'msec', 'usec', 'msec_frac', 'usec_frac'):
+            mult = 1
+            fld_len = 0
+
+            # Handle microseconds and milliseconds
+            if fmtstr.startswith('usec'):
+                mult = 1000000
+                fld_len = 6
+            elif fmtstr.startswith('msec'):
+                mult = 1000
+                fld_len = 3
+
+            # Adjust for request for fractions
+            if fmtstr.endswith('_frac'):
+                log_time = int((log_time * mult) - (int(log_time) * mult))
+            else:
+                log_time = int(log_time * mult)
+                fld_len = 0
+
+            # Return the formatted result
+            return "%0*d" % (fld_len, log_time)
+
+        return time.strftime(fmtstr, time.gmtime(log_time))
+
+
+class UnavailableConversion(Conversion):
+    def prepare(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        return "-"
+
+
+class URLConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        return self.escape(request.path)
+
+
+class WSGIEnvironmentConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        return self.escape(request.environ.get(self.modifier.param, '-'))

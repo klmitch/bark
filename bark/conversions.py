@@ -14,6 +14,7 @@
 #    under the License.
 
 import abc
+from curses import ascii
 
 
 class Modifier(object):
@@ -71,8 +72,45 @@ class Modifier(object):
         return self.reject
 
 
+class EscapeDict(dict):
+    def __missing__(self, key):
+        return '\\x%02x' % ord(key)
+
+
 class Conversion(object):
     __metaclass__ = abc.ABCMeta
+
+    _escapes = EscapeDict({
+        "\b": '\\b',
+        "\n": '\\n',
+        "\r": '\\r',
+        "\t": '\\t',
+        "\v": '\\v',
+        "\\": '\\\\',
+        '"': '\\"',
+    })
+
+    @staticmethod
+    def _needescape(c):
+        """
+        Return True if character needs escaping, else False.
+        """
+
+        return not ascii.isprint(c) or c == '"' or c == '\\' or ascii.isctrl(c)
+
+    @classmethod
+    def escape(cls, string):
+        """
+        Utility method to produce an escaped version of a given
+        string.
+
+        :param string: The string to escape.
+
+        :returns: The escaped version of the string.
+        """
+
+        return ''.join([cls._escapes[c] if cls._needescape(c) else c
+                        for c in string.encode('utf8')])
 
     def __init__(self, conv_chr, modifier):
         """

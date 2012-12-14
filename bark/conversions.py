@@ -224,7 +224,11 @@ class Format(object):
 
         result = []
         for idx, conv in enumerate(self.conversions):
-            result.append(conv.convert(request, response, data[idx]))
+            # Only include conversion if it's allowed
+            if conv.modifier.accept(response.status_code):
+                result.append(conv.convert(request, response, data[idx]))
+            else:
+                result.append('-')
 
         return ''.join(result)
 

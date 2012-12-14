@@ -65,7 +65,7 @@ setup(
             'm = bark.conversions:RequestMethodConversion',
             'n = bark.conversions:UnavailableConversion',
             'o = bark.conversions:ResponseHeaderConversion',
-            'p = bark.conversions:ServerPortConversion',
+            'p = bark.conversions:PortConversion',
             'P = bark.conversions:ProcessIDConversion',
             'q = bark.conversions:QueryStringConversion',
             'r = bark.conversions:FirstLineConversion',

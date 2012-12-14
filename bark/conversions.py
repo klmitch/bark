@@ -629,7 +629,7 @@ class ServerNameConversion(Conversion):
         return self.escape(request.environ['HTTP_HOST'])
 
 
-class ServerPortConversion(Conversion):
+class PortConversion(Conversion):
     def convert(self, request, response, data):
         """
         Performs the desired Conversion.
@@ -647,8 +647,9 @@ class ServerPortConversion(Conversion):
 
         if self.modifier.param in (None, 'canonical', 'local'):
             return request.environ['SERVER_PORT']
+        elif self.modifier.param == 'remote':
+            return request.environ.get('REMOTE_PORT', '-')
 
-        # Remote user port is not available in the environment
         return "-"
 
 

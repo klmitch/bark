@@ -16,10 +16,10 @@
 import abc
 
 
-class Modifiers(object):
+class Modifier(object):
     def __init__(self):
         """
-        Initialize a Modifiers object.
+        Initialize a Modifier object.
         """
 
         # These two work together; if 'reject' is True, only codes
@@ -74,15 +74,17 @@ class Modifiers(object):
 class Conversion(object):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, modifiers):
+    def __init__(self, conv_chr, modifier):
         """
         Initialize a Conversion object.
 
-        :param modifiers: The set of format modifiers applied to this
-                          conversion.
+        :param conv_chr: The conversion character.
+        :param modifier: The format modifier applied to this
+                         conversion.
         """
 
-        self.modifiers = modifiers
+        self.conv_chr = conv_chr
+        self.modifier = modifier
 
     def prepare(self, request):
         """
@@ -193,7 +195,7 @@ class StringConversion(Conversion):
         :param string: The string to insert.
         """
 
-        super(StringConversion, self).__init__(Modifiers())
+        super(StringConversion, self).__init__(None, Modifier())
         self.string = string
 
     def append(self, text):

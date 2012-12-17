@@ -157,7 +157,7 @@ class Conversion(object):
                   conversion.
         """
 
-        pass
+        pass  # Pragma: nocover
 
 
 class Format(object):

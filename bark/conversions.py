@@ -176,7 +176,7 @@ class Format(object):
         """
 
         if (self.conversions and
-            isinstance(self.conversions[-1], StringConversion)):
+                isinstance(self.conversions[-1], StringConversion)):
             self.conversions[-1].append(text)
         else:
             self.conversions.append(StringConversion(text))

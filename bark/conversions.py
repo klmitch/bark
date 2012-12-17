@@ -504,9 +504,9 @@ class QueryStringConversion(Conversion):
                   conversion.
         """
 
-        qstr = self.escape(request.query_string)
+        qstr = request.query_string
 
-        return '?%s' % qstr if qstr else ''
+        return self.escape('?%s' % qstr) if qstr else ''
 
 
 class RemoteUserConversion(Conversion):

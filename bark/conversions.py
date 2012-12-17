@@ -650,9 +650,9 @@ class PortConversion(Conversion):
         """
 
         if self.modifier.param in (None, 'canonical', 'local'):
-            return request.environ['SERVER_PORT']
+            return str(request.environ['SERVER_PORT'])
         elif self.modifier.param == 'remote':
-            return request.environ.get('REMOTE_PORT', '-')
+            return str(request.environ.get('REMOTE_PORT', '-'))
 
         return "-"
 

@@ -16,7 +16,7 @@ def readreq(filename):
     return result
 
 
-def readfile(fname):
+def readfile(filename):
     with open(filename) as f:
         return f.read()
 

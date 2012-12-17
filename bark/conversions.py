@@ -790,7 +790,7 @@ class TimeConversion(Conversion):
 
 
 class UnavailableConversion(Conversion):
-    def prepare(self, request, response, data):
+    def convert(self, request, response, data):
         """
         Performs the desired Conversion.
 

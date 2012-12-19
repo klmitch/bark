@@ -27,6 +27,37 @@ class ModifierTest(unittest2.TestCase):
         self.assertEqual(mod.reject, True)
         self.assertEqual(mod.param, None)
 
+    def test_str_empty(self):
+        mod = conversions.Modifier()
+
+        self.assertEqual(str(mod), '')
+
+    def test_str_codes_reject(self):
+        mod = conversions.Modifier()
+        mod.codes = set([101, 202])
+
+        self.assertEqual(str(mod), '!101,202')
+
+    def test_str_codes_noreject(self):
+        mod = conversions.Modifier()
+        mod.codes = set([101, 202])
+        mod.reject = False
+
+        self.assertEqual(str(mod), '101,202')
+
+    def test_str_param(self):
+        mod = conversions.Modifier()
+        mod.param = 'param'
+
+        self.assertEqual(str(mod), '{param}')
+
+    def test_str_all(self):
+        mod = conversions.Modifier()
+        mod.codes = set([101, 202])
+        mod.param = 'param'
+
+        self.assertEqual(str(mod), '!101,202{param}')
+
     def test_set_codes_noreject(self):
         mod = conversions.Modifier()
 
@@ -114,6 +145,16 @@ class ConversionTest(unittest2.TestCase):
         self.assertEqual(conv.conv_chr, 'a')
         self.assertEqual(conv.modifier, 'modifier')
 
+    def test_str(self):
+        conv = ConversionForTest('a', '{modifier}')
+
+        self.assertEqual(str(conv), '%{modifier}a')
+
+    def test_str_long(self):
+        conv = ConversionForTest('conv', '{modifier}')
+
+        self.assertEqual(str(conv), '%{modifier}(conv)')
+
     def test_prepare(self):
         conv = ConversionForTest('a', 'modifier')
 
@@ -129,6 +170,11 @@ class StringConversionTest(unittest2.TestCase):
         self.assertEqual(conv.modifier.codes, set())
         self.assertEqual(conv.modifier.reject, True)
         self.assertEqual(conv.string, "a string")
+
+    def test_str(self):
+        conv = conversions.StringConversion("a string")
+
+        self.assertEqual(str(conv), 'a string')
 
     def test_append(self):
         conv = conversions.StringConversion("")

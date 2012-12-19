@@ -34,6 +34,12 @@ class FormatTest(unittest2.TestCase):
 
         self.assertEqual(fmt.conversions, [])
 
+    def test_str(self):
+        fmt = format.Format()
+        fmt.conversions = ["this is ", 1, " test"]
+
+        self.assertEqual(str(fmt), "this is 1 test")
+
     @mock.patch.object(conversions, 'StringConversion',
                        return_value=mock.Mock())
     def test_append_text_empty(self, mock_StringConversion):

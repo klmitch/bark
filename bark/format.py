@@ -24,6 +24,13 @@ class Format(object):
 
         self.conversions = []
 
+    def __str__(self):
+        """
+        Return a string representation of this format.
+        """
+
+        return ''.join(str(c) for c in self.conversions)
+
     def append_text(self, text):
         """
         Append static text to the Format.

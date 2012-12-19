@@ -37,6 +37,26 @@ class Modifier(object):
         # desired header
         self.param = None
 
+    def __str__(self):
+        """
+        Construct a string representation of this conversion modifier.
+        """
+
+        # Start off with the empty string
+        result = ''
+
+        # Add the code restrictions
+        if self.codes:
+            if self.reject:
+                result += '!'
+            result += ','.join(str(c) for c in sorted(self.codes))
+
+        # Now, add the parameter
+        if self.param:
+            result += '{%s}' % self.param
+
+        return result
+
     def set_codes(self, codes, reject=False):
         """
         Set the accepted or rejected codes codes list.
@@ -128,6 +148,15 @@ class Conversion(object):
         self.conv_chr = conv_chr
         self.modifier = modifier
 
+    def __str__(self):
+        """
+        Construct a string representation of this conversion.
+        """
+
+        if len(self.conv_chr) == 1:
+            return "%%%s%s" % (self.modifier, self.conv_chr)
+        return "%%%s(%s)" % (self.modifier, self.conv_chr)
+
     def prepare(self, request):
         """
         Performs any preparation necessary for the Conversion.
@@ -170,6 +199,13 @@ class StringConversion(Conversion):
 
         super(StringConversion, self).__init__(None, Modifier())
         self.string = string
+
+    def __str__(self):
+        """
+        Return a string representation of this StringConversion.
+        """
+
+        return self.string
 
     def append(self, text):
         """

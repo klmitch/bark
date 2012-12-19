@@ -25,6 +25,319 @@ class TestException(Exception):
     pass
 
 
+class ParseStateTest(unittest2.TestCase):
+    def test_init(self):
+        state = format.ParseState('fmt', 'format')
+
+        self.assertEqual(state.fmt, 'fmt')
+        self.assertEqual(state.format, 'format')
+        self.assertEqual(state.state, ['string'])
+        self.assertEqual(state.str_begin, 0)
+        self.assertEqual(state.param_begin, None)
+        self.assertEqual(state.conv_begin, None)
+        self.assertEqual(state.modifier, None)
+        self.assertEqual(state.codes, [])
+        self.assertEqual(state.reject, False)
+        self.assertEqual(state.ignore, 0)
+        self.assertEqual(state.code_last, False)
+
+    def test_eq(self):
+        state = format.ParseState('fmt', 'format')
+        state.state = ['string', 'other']
+
+        self.assertFalse(state == 'string')
+        self.assertTrue(state == 'other')
+
+    def test_pop_state_noidx(self):
+        state = format.ParseState('fmt', 'format')
+        state.state = ['string', 'other']
+
+        state.pop_state()
+
+        self.assertEqual(state.state, ['string'])
+        self.assertEqual(state.str_begin, 0)
+
+    def test_pop_state_withidx(self):
+        state = format.ParseState('fmt', 'format')
+        state.state = ['string', 'other']
+
+        state.pop_state(5)
+
+        self.assertEqual(state.state, ['string'])
+        self.assertEqual(state.str_begin, 5)
+
+    def test_check_ignore(self):
+        state = format.ParseState('fmt', 'format')
+        state.ignore = 1
+
+        self.assertTrue(state.check_ignore())
+        self.assertEqual(state.ignore, 0)
+        self.assertFalse(state.check_ignore())
+        self.assertEqual(state.ignore, 0)
+
+    def test_set_ignore(self):
+        state = format.ParseState('fmt', 'format')
+
+        state.set_ignore(1)
+
+        self.assertEqual(state.ignore, 1)
+
+        state.set_ignore(2)
+
+        self.assertEqual(state.ignore, 3)
+
+    def test_add_text_empty(self):
+        state = format.ParseState(mock.Mock(), 'a format string')
+        state.str_begin = 2
+
+        state.add_text(2)
+
+        self.assertFalse(state.fmt.append_text.called)
+        self.assertEqual(state.str_begin, 2)
+
+    def test_add_text_nonext(self):
+        state = format.ParseState(mock.Mock(), 'a format string')
+        state.str_begin = 2
+
+        state.add_text(8)
+
+        state.fmt.append_text.assert_called_once_with('format')
+        self.assertEqual(state.str_begin, 2)
+
+    def test_add_text_withnext(self):
+        state = format.ParseState(mock.Mock(), 'a format string')
+        state.str_begin = 2
+
+        state.add_text(8, 8)
+
+        state.fmt.append_text.assert_called_once_with('format')
+        self.assertEqual(state.str_begin, 8)
+
+    def test_add_escape_available(self):
+        state = format.ParseState(mock.Mock(
+            _unescape={'\\n': '\n'}), 'a \\n format string')
+        state.str_begin = 2
+
+        state.add_escape(4, 'n')
+
+        state.fmt.append_text.assert_called_once_with('\n')
+
+    def test_add_escape_unavailable(self):
+        state = format.ParseState(mock.Mock(
+            _unescape={'\\n': '\n'}), 'a \\t format string')
+        state.str_begin = 2
+
+        state.add_escape(4, 't')
+
+        state.fmt.append_text.assert_called_once_with('t')
+
+    def test_set_param(self):
+        state = format.ParseState('fmt', 'a format string')
+        state.modifier = mock.Mock()
+        state.param_begin = 2
+
+        state.set_param(8)
+
+        state.modifier.set_param.assert_called_once_with('format')
+
+    def test_set_conversion_noconv_nocodes(self):
+        state = format.ParseState(mock.Mock(**{
+            '_get_conversion.return_value': 'fake_conversion',
+        }), 'a format string')
+        modifier = mock.Mock()
+        state.modifier = modifier
+        state.param_begin = 2
+        state.reject = True
+        state.code_last = True
+
+        state.set_conversion(7)
+
+        self.assertFalse(modifier.set_codes.called)
+        state.fmt._get_conversion.assert_called_once_with('t', modifier)
+        state.fmt.append_conv.assert_called_once_with('fake_conversion')
+        self.assertEqual(state.param_begin, None)
+        self.assertEqual(state.conv_begin, None)
+        self.assertEqual(state.modifier, None)
+        self.assertEqual(state.codes, [])
+        self.assertEqual(state.reject, False)
+        self.assertEqual(state.code_last, False)
+
+    def test_set_conversion_withconv(self):
+        state = format.ParseState(mock.Mock(**{
+            '_get_conversion.return_value': 'fake_conversion',
+        }), 'a format string')
+        modifier = mock.Mock()
+        state.modifier = modifier
+        state.param_begin = 2
+        state.conv_begin = 2
+        state.reject = True
+        state.code_last = True
+
+        state.set_conversion(8)
+
+        self.assertFalse(modifier.set_codes.called)
+        state.fmt._get_conversion.assert_called_once_with('format', modifier)
+        state.fmt.append_conv.assert_called_once_with('fake_conversion')
+        self.assertEqual(state.param_begin, None)
+        self.assertEqual(state.conv_begin, None)
+        self.assertEqual(state.modifier, None)
+        self.assertEqual(state.codes, [])
+        self.assertEqual(state.reject, False)
+        self.assertEqual(state.code_last, False)
+
+    def test_set_conversion_withcodes(self):
+        state = format.ParseState(mock.Mock(**{
+            '_get_conversion.return_value': 'fake_conversion',
+        }), 'a format string')
+        modifier = mock.Mock()
+        state.modifier = modifier
+        state.param_begin = 2
+        state.codes = [101, 202, 303]
+        state.reject = 'reject'
+        state.code_last = True
+
+        state.set_conversion(7)
+
+        modifier.set_codes.assert_called_once_with([101, 202, 303], 'reject')
+        state.fmt._get_conversion.assert_called_once_with('t', modifier)
+        state.fmt.append_conv.assert_called_once_with('fake_conversion')
+        self.assertEqual(state.param_begin, None)
+        self.assertEqual(state.conv_begin, None)
+        self.assertEqual(state.modifier, None)
+        self.assertEqual(state.codes, [])
+        self.assertEqual(state.reject, False)
+        self.assertEqual(state.code_last, False)
+
+    def test_set_reject(self):
+        state = format.ParseState('fmt', 'format')
+
+        state.set_reject()
+
+        self.assertEqual(state.reject, True)
+
+    def test_set_code_short(self):
+        state = format.ParseState('fmt', 'a 1')
+
+        result = state.set_code(2)
+
+        self.assertEqual(result, False)
+        self.assertEqual(state.codes, [])
+        self.assertEqual(state.ignore, 0)
+        self.assertEqual(state.code_last, False)
+
+    def test_set_code_bad(self):
+        state = format.ParseState('fmt', 'a 10o')
+
+        result = state.set_code(2)
+
+        self.assertEqual(result, False)
+        self.assertEqual(state.codes, [])
+        self.assertEqual(state.ignore, 0)
+        self.assertEqual(state.code_last, False)
+
+    def test_set_code(self):
+        state = format.ParseState('fmt', 'a 101')
+
+        result = state.set_code(2)
+
+        self.assertEqual(result, True)
+        self.assertEqual(state.codes, [101])
+        self.assertEqual(state.ignore, 2)
+        self.assertEqual(state.code_last, True)
+
+    def test_end_state_nostr(self):
+        state = format.ParseState(mock.Mock(), 'format')
+        state.str_begin = 6
+
+        result = state.end_state()
+
+        self.assertFalse(state.fmt.append_text.called)
+        self.assertEqual(result, state.fmt)
+
+    def test_end_state_longstack(self):
+        state = format.ParseState(mock.Mock(), 'format')
+        state.state = ['string', 'other']
+
+        result = state.end_state()
+
+        state.fmt.append_text.assert_called_once_with(
+            "(Bad format string; ended in state 'other')")
+        self.assertEqual(result, state.fmt)
+
+    def test_end_state_wrongstate(self):
+        state = format.ParseState(mock.Mock(), 'format')
+        state.state = ['other']
+
+        result = state.end_state()
+
+        state.fmt.append_text.assert_called_once_with(
+            "(Bad format string; ended in state 'other')")
+        self.assertEqual(result, state.fmt)
+
+    def test_end_state(self):
+        state = format.ParseState(mock.Mock(), 'format')
+
+        result = state.end_state()
+
+        state.fmt.append_text.assert_called_once_with('format')
+        self.assertEqual(result, state.fmt)
+
+    @mock.patch.object(conversions, 'Modifier', return_value='some_conv')
+    def test_conversion(self, mock_Modifier):
+        state = format.ParseState('fmt', 'format')
+        state.str_begin = 2
+        state.param_begin = 2
+        state.conv_begin = 2
+        state.modifier = 'modifier'
+        state.codes = [101, 202]
+        state.reject = True
+        state.code_last = True
+
+        state.conversion(8)
+
+        self.assertEqual(state.state, ['string', 'conversion'])
+        self.assertEqual(state.str_begin, 8)
+        self.assertEqual(state.param_begin, None)
+        self.assertEqual(state.conv_begin, None)
+        self.assertEqual(state.modifier, 'some_conv')
+        self.assertEqual(state.codes, [])
+        self.assertEqual(state.reject, False)
+        self.assertEqual(state.code_last, False)
+        mock_Modifier.assert_called_once_with()
+
+    def test_escape(self):
+        state = format.ParseState('fmt', 'format')
+        state.str_begin = 2
+
+        state.escape(8)
+
+        self.assertEqual(state.state, ['string', 'escape'])
+        self.assertEqual(state.str_begin, 8)
+
+    def test_param(self):
+        state = format.ParseState('fmt', 'format')
+        state.param_begin = 2
+
+        state.param(8)
+
+        self.assertEqual(state.state, ['string', 'param'])
+        self.assertEqual(state.param_begin, 8)
+
+    def test_conv(self):
+        state = format.ParseState('fmt', 'format')
+        state.conv_begin = 2
+
+        state.conv(8)
+
+        self.assertEqual(state.state, ['string', 'conv'])
+        self.assertEqual(state.conv_begin, 8)
+
+
+class FakeConversion(conversions.Conversion):
+    def convert(self, request, response, data):
+        pass
+
+
 class FakeStringConversion(object):
     def __init__(self, *text):
         self.text = list(text)
@@ -132,6 +445,56 @@ class FormatTest(unittest2.TestCase):
         format.Format._conversion_cache['a'].assert_called_once_with(
             'a', 'modifier')
         self.assertFalse(mock_StringConversion.called)
+
+    @mock.patch.object(format, 'ParseState')
+    def test_parse_empty(self, mock_ParseState):
+        fmt = format.Format.parse('')
+
+        self.assertFalse(mock_ParseState.called)
+        self.assertIsInstance(fmt, format.Format)
+        self.assertEqual(fmt.conversions, [])
+
+    @mock.patch.object(format.Format, '_get_conversion', FakeConversion)
+    @mock.patch.object(format.Format, 'append_text',
+                       lambda self, text: self.conversions.append(text))
+    def test_parse(self):
+        fmt = format.Format.parse(
+            # Start off with some basic string stuff
+            r'string %% \t \n \\'
+            # Add in a simple conversion
+            '%a'
+            # Check the Apache compatibility
+            '%<b'
+            '%>c'
+            # Try code stuff...
+            '%101d'
+            '%!202e'
+            # How about multiple codes?
+            '%303,404f'
+            '%!505,606g'
+            # What about an invalid code?
+            '%10h'
+            # Add a parameter
+            '%{param}i'
+            # Try a multi-character conversion spec
+            '%(spec)'
+        )
+
+        self.assertEqual(fmt.conversions[:7],
+                         ['string %', ' ', '\t', ' ', '\n', ' ', '\\'])
+
+        expected = ['%a', '%b', '%c', '%101d', '%!202e', '%303,404f',
+                    '%!505,606g', '%1']
+        for conv, expect in zip(fmt.conversions[7:15], expected):
+            self.assertIsInstance(conv, FakeConversion)
+            self.assertEqual(str(conv), expect)
+
+        self.assertEqual(fmt.conversions[15], '0h')
+
+        expected = ['%{param}i', '%(spec)']
+        for conv, expect in zip(fmt.conversions[16:], expected):
+            self.assertIsInstance(conv, FakeConversion)
+            self.assertEqual(str(conv), expect)
 
     def test_init(self):
         fmt = format.Format()

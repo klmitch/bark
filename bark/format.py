@@ -13,10 +13,50 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import pkg_resources
+
 from bark import conversions
 
 
 class Format(object):
+    _conversion_cache = {}
+
+    @classmethod
+    def _get_conversion(cls, conv_chr, modifier):
+        """
+        Return a conversion given its character.
+
+        :param conv_chr: The letter of the conversion, e.g., "a" for
+                         AddressConversion, etc.
+        :param modifier: The format modifier applied to this
+                         conversion.
+
+        :returns: An instance of bark.conversions.Conversion.
+        """
+
+        # Do we need to look up the conversion?
+        if conv_chr not in cls._conversion_cache:
+            for ep in pkg_resources.iter_entry_points('bark.conversion',
+                                                      conv_chr):
+                try:
+                    # Load the conversion class
+                    cls._conversion_cache[conv_chr] = ep.load()
+                    break
+                except (ImportError, pkg_resources.UnknownExtra):
+                    # Couldn't load it; odd...
+                    continue
+            else:
+                # Cache the negative result
+                cls._conversion_cache[conv_chr] = None
+
+        # Handle negative caching
+        if cls._conversion_cache[conv_chr] is None:
+            return conversions.StringConversion("(Unknown conversion '%%%s')" %
+                                                conv_chr)
+
+        # Instantiate the conversion
+        return cls._conversion_cache[conv_chr](conv_chr, modifier)
+
     def __init__(self):
         """
         Initialize a Format.

@@ -92,6 +92,116 @@ def arg_types(**kwargs):
     return decorator
 
 
+def boolean(text):
+    """
+    An alternative to the "bool" argument type which interprets string
+    values.
+    """
+
+    tmp = text.lower()
+    if tmp.isdigit():
+        return bool(int(tmp))
+    elif tmp in ('t', 'true', 'on', 'yes'):
+        return True
+    elif tmp in ('f', 'false', 'off', 'no'):
+        return False
+
+    raise ValueError("invalid Boolean value %r" % text)
+
+
+def comma(text):
+    """
+    A special argument type that splits a string on ',' and turns it
+    into a list.  Spaces will be eliminated.
+    """
+
+    return [entry.strip() for entry in text.split(',')]
+
+
+def address(addr):
+    """
+    A special argument type that splits a string on ':' and transforms
+    the result into a tuple of host and (integer) port.
+    """
+
+    if ':' in addr:
+        # Using rpartition here means we should be able to support
+        # IPv6, but only with a strict syntax
+        host, _sep, port = addr.rpartition(':')
+
+        # Convert the port to a number
+        try:
+            port = int(port)
+        except ValueError:
+            raise ValueError("invalid port number %r" % port)
+
+        addr = (host, port)
+
+    return addr
+
+
+class choice(object):
+    """
+    A special argument type that demands the string be one of a set of
+    choices.  The valid choices are specified as arguments to the
+    constructor.
+    """
+
+    def __init__(self, *choices):
+        """
+        Initialize a choice by saving the valid choices.
+        """
+
+        self.choices = set(choices)
+
+    def __call__(self, text):
+        """
+        Ensure that the text is one of the valid choices.
+        """
+
+        if text not in self.choices:
+            raise ValueError("unrecognized value %r" % text)
+
+        return text
+
+
+class argmap(object):
+    """
+    A special argument type that demands the string be one of the keys
+    of a specified dictionary.  The return value will be the value of
+    that dictionary entry.
+    """
+
+    def __init__(self, the_map):
+        """
+        Initialize an argmap by saving the map.
+        """
+
+        self.argmap = the_map
+
+    def __call__(self, text):
+        """
+        Ensure that the text is one of the valid choices, and return
+        its corresponding value.
+        """
+
+        if text not in self.argmap:
+            raise ValueError("unrecognized value %r" % text)
+
+        return self.argmap[text]
+
+
+def credentials(text):
+    """
+    A special argument type that partitions a string on a ':' and
+    returns a tuple.  This can be used to specify a username and
+    password.
+    """
+
+    username, _sep, password = text.partition(':')
+    return (username, password)
+
+
 def null_handler(name, logname):
     """
     A Bark logging handler that discards log messages.
@@ -125,7 +235,7 @@ def stderr_handler(name, logname):
     return wrap_log_handler(logging.StreamHandler(sys.stderr))
 
 
-@arg_types(delay=bool)
+@arg_types(delay=boolean)
 def file_handler(name, logname, filename, mode='a', encoding=None,
                  delay=False):
     """
@@ -138,7 +248,7 @@ def file_handler(name, logname, filename, mode='a', encoding=None,
         filename, mode=mode, encoding=encoding, delay=delay))
 
 
-@arg_types(delay=bool)
+@arg_types(delay=boolean)
 def watched_file_handler(name, logname, filename, mode='a', encoding=None,
                          delay=False):
     """
@@ -153,7 +263,7 @@ def watched_file_handler(name, logname, filename, mode='a', encoding=None,
         filename, mode=mode, encoding=encoding, delay=delay))
 
 
-@arg_types(maxBytes=int, backupCount=int, delay=bool)
+@arg_types(maxBytes=int, backupCount=int, delay=boolean)
 def rotating_file_handler(name, logname, filename, mode='a', maxBytes=0,
                           backupCount=0, encoding=None, delay=False):
     """
@@ -169,7 +279,7 @@ def rotating_file_handler(name, logname, filename, mode='a', maxBytes=0,
         encoding=encoding, delay=delay))
 
 
-@arg_types(interval=int, backupCount=int, delay=bool, utc=bool)
+@arg_types(interval=int, backupCount=int, delay=boolean, utc=boolean)
 def timed_rotating_file_handler(name, logname, filename, when='h',
                                 interval=1, backupCount=0,
                                 encoding=None, delay=False, utc=False):
@@ -212,7 +322,9 @@ def datagram_handler(name, logname, host, port):
     return wrap_log_handler(logging.handlers.DatagramHandler(host, port))
 
 
-def syslog_handler(name, logname, address='localhost:514',
+@arg_types(address=address,
+           facility=argmap(logging.handlers.SysLogHandler.facility_names))
+def syslog_handler(name, logname, address=('localhost', 514),
                    facility='user'):
     """
     A Bark logging handler logging output to syslog.  By default,
@@ -224,30 +336,11 @@ def syslog_handler(name, logname, address='localhost:514',
     Similar to logging.handlers.SysLogHandler.
     """
 
-    # Translate the address, if needed
-    if ':' in address:
-        # Using rpartition here means we should be able to support
-        # IPv6, but only with a strict syntax
-        addr, _sep, port = address.rpartition(':')
-
-        # Convert the port to a number
-        try:
-            port = int(port)
-        except ValueError:
-            # Translate for proper logging
-            raise ValueError("Invalid port number %r" % port)
-
-        address = (addr, port)
-
-    # Now, let's translate the facility
-    if facility not in logging.handlers.SysLogHandler.facility_names:
-        raise ValueError("Unrecognized syslog facility %r" % facility)
-    facility = logging.handlers.SysLogHandler.facility_names[facility]
-
     return wrap_log_handler(logging.handlers.SysLogHandler(
         address=address, facility=facility))
 
 
+@arg_types(logtype=choice('Application', 'System', 'Security'))
 def nt_event_log_handler(name, logname, appname, dllname=None,
                          logtype="Application"):
     """
@@ -256,14 +349,11 @@ def nt_event_log_handler(name, logname, appname, dllname=None,
     Similar to logging.handlers.NTEventLogHandler.
     """
 
-    # Sanity-check logtype
-    if logtype not in ('Application', 'System', 'Security'):
-        raise ValueError("Unrecognized logtype value %r" % logtype)
-
     return wrap_log_handler(logging.handlers.NTEventLogHandler(
         appname, dllname=dllname, logtype=logtype))
 
 
+@arg_types(mailhost=address, toaddrs=comma, credentials=credentials)
 def smtp_handler(name, logname, mailhost, fromaddr, toaddrs, subject,
                  credentials=None):
     """
@@ -275,33 +365,11 @@ def smtp_handler(name, logname, mailhost, fromaddr, toaddrs, subject,
     Similar to logging.handlers.SMTPHandler.
     """
 
-    # Set up the mailhost
-    if ':' in mailhost:
-        # Using rpartition here means we should be able to support
-        # IPv6, but only with a strict syntax
-        addr, _sep, port = mailhost.rpartition(':')
-
-        # Convert the port to a number
-        try:
-            port = int(port)
-        except ValueError:
-            # Translate for proper logging
-            raise ValueError("Invalid port number %r" % port)
-
-        mailhost = (addr, port)
-
-    # Set up toaddrs as a list
-    toaddrs = [addr.strip() for addr in toaddrs.split(',')]
-
-    # Split up credentials
-    if credentials:
-        username, _sep, password = credentials.partition(':')
-        credentials = (username, password)
-
     return wrap_log_handler(logging.handlers.SMTPHandler(
         mailhost, fromaddr, toaddrs, subject, credentials=credentials))
 
 
+@arg_types(method=choice('GET', 'POST'))
 def http_handler(name, logname, host, url, method="GET"):
     """
     A Bark logging handler logging output to an HTTP server, using
@@ -379,22 +447,12 @@ def get_handler(name, logname, args):
         # Translate the value, first
         target_type = type_map.get(arg, lambda x: x)
         if target_type is bool:
-            test = value.lower()
-            if test.isdigit():
-                value = bool(int(test))
-            elif test in ('t', 'true', 'on', 'yes'):
-                value = True
-            elif test in ('f', 'false', 'off', 'no'):
-                value = False
-            else:
-                raise ValueError("Argument %r: invalid Boolean value %r" %
-                                 (arg, value))
-        else:
-            try:
-                value = target_type(value)
-            except ValueError as exc:
-                raise ValueError("Argument %r: invalid %s value %r" %
-                                 (arg, target_type.__name__, value))
+            target_type = boolean
+        try:
+            value = target_type(value)
+        except ValueError as exc:
+            raise ValueError("Argument %r: invalid %s value %r: %s" %
+                             (arg, target_type.__name__, value, exc))
 
         # OK, save it
         kwargs[arg] = value

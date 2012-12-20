@@ -141,7 +141,7 @@ class BarkMiddleware(object):
         for log, (format, handler) in self.handlers.items():
             result = format.convert(request, response, data[log])
 
-            # XXX wrap in a log record and emit with the handler
-            print "%s: %s" % (log, result)
+            # Emit with the handler
+            handler(result)
 
         return response

@@ -57,7 +57,7 @@ def wrap_log_handler(handler):
     obj = middleware.BarkMiddleware.__call__
     filename = inspect.getsourcefile(obj)
     lineno = inspect.getsourcelines(obj)[1]
-    funcname = obj.__name__
+    funcname = '__call__'
 
     @functools.wraps(handler.emit)
     def wrapper(msg):

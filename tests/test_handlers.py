@@ -434,3 +434,274 @@ class LookupHandlerTest(unittest2.TestCase):
                                                        'handler')
         mock_iter_entry_points.return_value[0].load.assert_called_once_with()
         self.assertEqual(result, 'fake_hand')
+
+
+class GetHandlerTest(unittest2.TestCase):
+    @mock.patch.object(handlers.LOG, 'warn')
+    def test_func_no_args(self, mock_warn):
+        def test(name, logname):
+            self.assertEqual(name, 'test_name')
+            self.assertEqual(logname, 'test_logname')
+            return 'handler'
+
+        with mock.patch.object(handlers, '_lookup_handler',
+                               return_value=test) as mock_lookup_handler:
+            result = handlers.get_handler('test_name', 'test_logname', {})
+
+        mock_lookup_handler.assert_called_once_with('test_name')
+        self.assertEqual(result, 'handler')
+        self.assertFalse(mock_warn.called)
+
+    @mock.patch.object(handlers.LOG, 'warn')
+    def test_func_required_args_missing(self, mock_warn):
+        def test(name, logname, arg1, arg2, arg3):
+            self.fail("factory called unexpectedly")
+
+        with mock.patch.object(handlers, '_lookup_handler',
+                               return_value=test) as mock_lookup_handler:
+            self.assertRaises(TypeError, handlers.get_handler,
+                              'test_name', 'test_logname',
+                              dict(arg2='value2'))
+
+        mock_lookup_handler.assert_called_once_with('test_name')
+        self.assertFalse(mock_warn.called)
+
+    @mock.patch.object(handlers.LOG, 'warn')
+    def test_func_optional_args_missing(self, mock_warn):
+        def test(name, logname, arg1, arg2=None, arg3=None):
+            self.assertEqual(name, 'test_name')
+            self.assertEqual(logname, 'test_logname')
+            self.assertEqual(arg1, 'value1')
+            self.assertEqual(arg2, None)
+            self.assertEqual(arg3, 'value3')
+            return 'handler'
+
+        with mock.patch.object(handlers, '_lookup_handler',
+                               return_value=test) as mock_lookup_handler:
+            result = handlers.get_handler('test_name', 'test_logname',
+                                          dict(arg1='value1', arg3='value3'))
+
+        mock_lookup_handler.assert_called_once_with('test_name')
+        self.assertEqual(result, 'handler')
+        self.assertFalse(mock_warn.called)
+
+    @mock.patch.object(handlers.LOG, 'warn')
+    def test_func_additional_args(self, mock_warn):
+        def test(name, logname):
+            self.assertEqual(name, 'test_name')
+            self.assertEqual(logname, 'test_logname')
+            return 'handler'
+
+        with mock.patch.object(handlers, '_lookup_handler',
+                               return_value=test) as mock_lookup_handler:
+            result = handlers.get_handler('test_name', 'test_logname',
+                                          dict(arg1='value1', arg2='value1'))
+
+        mock_lookup_handler.assert_called_once_with('test_name')
+        self.assertEqual(result, 'handler')
+        mock_warn.assert_called_once_with(
+            "Unused arguments for handler of type 'test_name' for log "
+            "'test_logname': 'arg1', 'arg2'")
+
+    @mock.patch.object(handlers.LOG, 'warn')
+    def test_class_no_args(self, mock_warn):
+        class Test(object):
+            def __init__(inst, name, logname):
+                self.assertEqual(name, 'test_name')
+                self.assertEqual(logname, 'test_logname')
+
+        with mock.patch.object(handlers, '_lookup_handler',
+                               return_value=Test) as mock_lookup_handler:
+            result = handlers.get_handler('test_name', 'test_logname', {})
+
+        mock_lookup_handler.assert_called_once_with('test_name')
+        self.assertIsInstance(result, Test)
+        self.assertFalse(mock_warn.called)
+
+    @mock.patch.object(handlers.LOG, 'warn')
+    def test_class_required_args_missing(self, mock_warn):
+        class Test(object):
+            def __init__(inst, name, logname, arg1, arg2, arg3):
+                self.fail("factory called unexpectedly")
+
+        with mock.patch.object(handlers, '_lookup_handler',
+                               return_value=Test) as mock_lookup_handler:
+            self.assertRaises(TypeError, handlers.get_handler,
+                              'test_name', 'test_logname',
+                              dict(arg2='value2'))
+
+        mock_lookup_handler.assert_called_once_with('test_name')
+        self.assertFalse(mock_warn.called)
+
+    @mock.patch.object(handlers.LOG, 'warn')
+    def test_class_optional_args_missing(self, mock_warn):
+        class Test(object):
+            def __init__(inst, name, logname, arg1, arg2=None, arg3=None):
+                self.assertEqual(name, 'test_name')
+                self.assertEqual(logname, 'test_logname')
+                self.assertEqual(arg1, 'value1')
+                self.assertEqual(arg2, None)
+                self.assertEqual(arg3, 'value3')
+
+        with mock.patch.object(handlers, '_lookup_handler',
+                               return_value=Test) as mock_lookup_handler:
+            result = handlers.get_handler('test_name', 'test_logname',
+                                          dict(arg1='value1', arg3='value3'))
+
+        mock_lookup_handler.assert_called_once_with('test_name')
+        self.assertIsInstance(result, Test)
+        self.assertFalse(mock_warn.called)
+
+    @mock.patch.object(handlers.LOG, 'warn')
+    def test_class_additional_args(self, mock_warn):
+        class Test(object):
+            def __init__(inst, name, logname):
+                self.assertEqual(name, 'test_name')
+                self.assertEqual(logname, 'test_logname')
+
+        with mock.patch.object(handlers, '_lookup_handler',
+                               return_value=Test) as mock_lookup_handler:
+            result = handlers.get_handler('test_name', 'test_logname',
+                                          dict(arg1='value1', arg2='value1'))
+
+        mock_lookup_handler.assert_called_once_with('test_name')
+        self.assertIsInstance(result, Test)
+        mock_warn.assert_called_once_with(
+            "Unused arguments for handler of type 'test_name' for log "
+            "'test_logname': 'arg1', 'arg2'")
+
+    @mock.patch.object(handlers.LOG, 'warn')
+    def test_meth_no_args(self, mock_warn):
+        class Test(object):
+            def meth(inst, name, logname):
+                self.assertEqual(name, 'test_name')
+                self.assertEqual(logname, 'test_logname')
+                return 'handler'
+
+        test = Test()
+
+        with mock.patch.object(handlers, '_lookup_handler',
+                               return_value=test.meth) as mock_lookup_handler:
+            result = handlers.get_handler('test_name', 'test_logname', {})
+
+        mock_lookup_handler.assert_called_once_with('test_name')
+        self.assertEqual(result, 'handler')
+        self.assertFalse(mock_warn.called)
+
+    @mock.patch.object(handlers.LOG, 'warn')
+    def test_meth_required_args_missing(self, mock_warn):
+        class Test(object):
+            def meth(inst, name, logname, arg1, arg2, arg3):
+                self.fail("factory called unexpectedly")
+
+        test = Test()
+
+        with mock.patch.object(handlers, '_lookup_handler',
+                               return_value=test.meth) as mock_lookup_handler:
+            self.assertRaises(TypeError, handlers.get_handler,
+                              'test_name', 'test_logname',
+                              dict(arg2='value2'))
+
+        mock_lookup_handler.assert_called_once_with('test_name')
+        self.assertFalse(mock_warn.called)
+
+    @mock.patch.object(handlers.LOG, 'warn')
+    def test_meth_optional_args_missing(self, mock_warn):
+        class Test(object):
+            def meth(inst, name, logname, arg1, arg2=None, arg3=None):
+                self.assertEqual(name, 'test_name')
+                self.assertEqual(logname, 'test_logname')
+                self.assertEqual(arg1, 'value1')
+                self.assertEqual(arg2, None)
+                self.assertEqual(arg3, 'value3')
+                return 'handler'
+
+        test = Test()
+
+        with mock.patch.object(handlers, '_lookup_handler',
+                               return_value=test.meth) as mock_lookup_handler:
+            result = handlers.get_handler('test_name', 'test_logname',
+                                          dict(arg1='value1', arg3='value3'))
+
+        mock_lookup_handler.assert_called_once_with('test_name')
+        self.assertEqual(result, 'handler')
+        self.assertFalse(mock_warn.called)
+
+    @mock.patch.object(handlers.LOG, 'warn')
+    def test_meth_additional_args(self, mock_warn):
+        class Test(object):
+            def meth(inst, name, logname):
+                self.assertEqual(name, 'test_name')
+                self.assertEqual(logname, 'test_logname')
+                return 'handler'
+
+        test = Test()
+
+        with mock.patch.object(handlers, '_lookup_handler',
+                               return_value=test.meth) as mock_lookup_handler:
+            result = handlers.get_handler('test_name', 'test_logname',
+                                          dict(arg1='value1', arg2='value1'))
+
+        mock_lookup_handler.assert_called_once_with('test_name')
+        self.assertEqual(result, 'handler')
+        mock_warn.assert_called_once_with(
+            "Unused arguments for handler of type 'test_name' for log "
+            "'test_logname': 'arg1', 'arg2'")
+
+    @mock.patch.object(handlers.LOG, 'warn')
+    @mock.patch.object(handlers, 'boolean', return_value='boolean')
+    def test_arg_boolean(self, mock_boolean, mock_warn):
+        @handlers.arg_types(arg1=bool)
+        def test(name, logname, arg1):
+            self.assertEqual(name, 'test_name')
+            self.assertEqual(logname, 'test_logname')
+            self.assertEqual(arg1, 'boolean')
+            return 'handler'
+
+        with mock.patch.object(handlers, '_lookup_handler',
+                               return_value=test) as mock_lookup_handler:
+            result = handlers.get_handler('test_name', 'test_logname',
+                                          dict(arg1='spam'))
+
+        mock_lookup_handler.assert_called_once_with('test_name')
+        self.assertEqual(result, 'handler')
+        self.assertFalse(mock_warn.called)
+        mock_boolean.assert_called_once_with('spam')
+
+    @mock.patch.object(handlers.LOG, 'warn')
+    def test_arg_othertype(self, mock_warn):
+        other = mock.Mock(return_value='other')
+
+        @handlers.arg_types(arg1=other)
+        def test(name, logname, arg1):
+            self.assertEqual(name, 'test_name')
+            self.assertEqual(logname, 'test_logname')
+            self.assertEqual(arg1, 'other')
+            return 'handler'
+
+        with mock.patch.object(handlers, '_lookup_handler',
+                               return_value=test) as mock_lookup_handler:
+            result = handlers.get_handler('test_name', 'test_logname',
+                                          dict(arg1='spam'))
+
+        mock_lookup_handler.assert_called_once_with('test_name')
+        self.assertEqual(result, 'handler')
+        self.assertFalse(mock_warn.called)
+        other.assert_called_once_with('spam')
+
+    @mock.patch.object(handlers.LOG, 'warn')
+    def test_arg_valueerror(self, mock_warn):
+        other = mock.Mock(side_effect=ValueError, __name__='other')
+
+        @handlers.arg_types(arg1=other)
+        def test(name, logname, arg1):
+            self.fail("factory called unexpectedly")
+
+        with mock.patch.object(handlers, '_lookup_handler',
+                               return_value=test) as mock_lookup_handler:
+            self.assertRaises(ValueError, handlers.get_handler,
+                              'test_name', 'test_logname', dict(arg1='spam'))
+
+        mock_lookup_handler.assert_called_once_with('test_name')
+        self.assertFalse(mock_warn.called)
+        other.assert_called_once_with('spam')

@@ -63,7 +63,7 @@ setup(
             'l = bark.conversions:UnavailableConversion',
             'L = bark.conversions:UnavailableConversion',
             'm = bark.conversions:RequestMethodConversion',
-            'n = bark.conversions:UnavailableConversion',
+            'n = bark.conversions:NoteConversion',
             'o = bark.conversions:ResponseHeaderConversion',
             'p = bark.conversions:PortConversion',
             'P = bark.conversions:ProcessIDConversion',

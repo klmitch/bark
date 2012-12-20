@@ -385,6 +385,42 @@ class LocalAddressConversionTest(unittest2.TestCase):
         self.assertEqual(result, 'server_name')
 
 
+class NoteConversionTest(unittest2.TestCase):
+    def test_convert_withnote(self):
+        modifier = conversions.Modifier()
+        modifier.set_param('remoteip-proxy-ip-list')
+        conv = conversions.NoteConversion('n', modifier)
+        request = mock.Mock(environ={
+            'bark.notes': {
+                'remoteip-proxy-ip-list': "ip1,ip2",
+            },
+        })
+
+        result = conv.convert(request, 'response', 'data')
+
+        self.assertEqual(result, 'ip1,ip2')
+
+    def test_convert_nonote(self):
+        modifier = conversions.Modifier()
+        modifier.set_param('remoteip-proxy-ip-list')
+        conv = conversions.NoteConversion('n', modifier)
+        request = mock.Mock(environ={'bark.notes': {}})
+
+        result = conv.convert(request, 'response', 'data')
+
+        self.assertEqual(result, '-')
+
+    def test_convert_notesmissing(self):
+        modifier = conversions.Modifier()
+        modifier.set_param('remoteip-proxy-ip-list')
+        conv = conversions.NoteConversion('n', modifier)
+        request = mock.Mock(environ={})
+
+        result = conv.convert(request, 'response', 'data')
+
+        self.assertEqual(result, '-')
+
+
 class ProcessIDConversionTest(unittest2.TestCase):
     @mock.patch('os.getpid', return_value=12345)
     def test_convert_none(self, _mock_getpid):

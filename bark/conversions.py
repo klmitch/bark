@@ -407,6 +407,27 @@ class LocalAddressConversion(Conversion):
         return request.environ['SERVER_NAME']
 
 
+class NoteConversion(Conversion):
+    def convert(self, request, response, data):
+        """
+        Performs the desired Conversion.
+
+        :param request: The webob Request object describing the
+                        request.
+        :param response: The webob Response object describing the
+                         response.
+        :param data: The data dictionary returned by the prepare()
+                     method.
+
+        :returns: A string, the results of which are the desired
+                  conversion.
+        """
+
+        # Notes are in bark.notes dictionary
+        return self.escape(request.environ.get('bark.notes', {}).get(
+            self.modifier.param, '-'))
+
+
 class ProcessIDConversion(Conversion):
     def convert(self, request, response, data):
         """

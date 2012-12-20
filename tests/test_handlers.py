@@ -14,6 +14,8 @@
 #    under the License.
 
 import logging
+import logging.handlers
+import sys
 
 import mock
 import unittest2
@@ -160,3 +162,215 @@ class CredentialsTest(unittest2.TestCase):
 
     def test_credentials_full(self):
         self.assertEqual(handlers.credentials('user:pass'), ('user', 'pass'))
+
+
+class NullHandlerTest(unittest2.TestCase):
+    def test_handler(self):
+        emit = handlers.null_handler('null', 'test')
+
+        self.assertTrue(callable(emit))
+
+        # Make sure it doesn't raise any failures
+        emit('this is a test')
+
+
+class StdOutHandlerTest(unittest2.TestCase):
+    @mock.patch('logging.StreamHandler',
+                return_value=mock.Mock(**{'emit.__name__': 'emit'}))
+    def test_handler(self, mock_StreamHandler):
+        emit = handlers.stdout_handler('stdout', 'test')
+
+        self.assertTrue(callable(emit))
+        mock_StreamHandler.assert_called_once_with(sys.stdout)
+
+
+class StdErrHandlerTest(unittest2.TestCase):
+    @mock.patch('logging.StreamHandler',
+                return_value=mock.Mock(**{'emit.__name__': 'emit'}))
+    def test_handler(self, mock_StreamHandler):
+        emit = handlers.stderr_handler('stderr', 'test')
+
+        self.assertTrue(callable(emit))
+        mock_StreamHandler.assert_called_once_with(sys.stderr)
+
+
+class FileHandlerTest(unittest2.TestCase):
+    def test_arg_types(self):
+        self.assertEqual(handlers.file_handler._bark_types,
+                         dict(delay=handlers.boolean))
+
+    @mock.patch('logging.FileHandler',
+                return_value=mock.Mock(**{'emit.__name__': 'emit'}))
+    def test_handler(self, mock_FileHandler):
+        args = dict(filename='filename', mode='b', encoding='encoding',
+                    delay=True)
+        emit = handlers.file_handler('file', 'test', **args)
+
+        self.assertTrue(callable(emit))
+        mock_FileHandler.assert_called_once_with(
+            'filename', mode='b', encoding='encoding', delay=True)
+
+
+class WatchedFileHandlerTest(unittest2.TestCase):
+    def test_arg_types(self):
+        self.assertEqual(handlers.watched_file_handler._bark_types,
+                         dict(delay=handlers.boolean))
+
+    @mock.patch('logging.handlers.WatchedFileHandler',
+                return_value=mock.Mock(**{'emit.__name__': 'emit'}))
+    def test_handler(self, mock_WatchedFileHandler):
+        args = dict(filename='filename', mode='b', encoding='encoding',
+                    delay=True)
+        emit = handlers.watched_file_handler('watched_file', 'test', **args)
+
+        self.assertTrue(callable(emit))
+        mock_WatchedFileHandler.assert_called_once_with(
+            'filename', mode='b', encoding='encoding', delay=True)
+
+
+class RotatingFileHandlerTest(unittest2.TestCase):
+    def test_arg_types(self):
+        self.assertEqual(handlers.rotating_file_handler._bark_types,
+                         dict(maxBytes=int, backupCount=int,
+                              delay=handlers.boolean))
+
+    @mock.patch('logging.handlers.RotatingFileHandler',
+                return_value=mock.Mock(**{'emit.__name__': 'emit'}))
+    def test_handler(self, mock_RotatingFileHandler):
+        args = dict(filename='filename', mode='b', maxBytes=23,
+                    backupCount=14, encoding='encoding', delay=True)
+        emit = handlers.rotating_file_handler('rotating_file', 'test', **args)
+
+        self.assertTrue(callable(emit))
+        mock_RotatingFileHandler.assert_called_once_with(
+            'filename', mode='b', maxBytes=23, backupCount=14,
+            encoding='encoding', delay=True)
+
+
+class TimedRotatingFileHandlerTest(unittest2.TestCase):
+    def test_arg_types(self):
+        self.assertEqual(handlers.timed_rotating_file_handler._bark_types,
+                         dict(interval=int, backupCount=int,
+                              delay=handlers.boolean, utc=handlers.boolean))
+
+    @mock.patch('logging.handlers.TimedRotatingFileHandler',
+                return_value=mock.Mock(**{'emit.__name__': 'emit'}))
+    def test_handler(self, mock_TimedRotatingFileHandler):
+        args = dict(filename='filename', when='b', interval=23,
+                    backupCount=14, encoding='encoding', delay=True, utc=True)
+        emit = handlers.timed_rotating_file_handler('timed_rotating_file',
+                                                    'test', **args)
+
+        self.assertTrue(callable(emit))
+        mock_TimedRotatingFileHandler.assert_called_once_with(
+            'filename', when='b', interval=23, backupCount=14,
+            encoding='encoding', delay=True, utc=True)
+
+
+class SocketHandlerTest(unittest2.TestCase):
+    def test_arg_types(self):
+        self.assertEqual(handlers.socket_handler._bark_types,
+                         dict(port=int))
+
+    @mock.patch('logging.handlers.SocketHandler',
+                return_value=mock.Mock(**{'emit.__name__': 'emit'}))
+    def test_handler(self, mock_SocketHandler):
+        args = dict(host='host', port=4005)
+        emit = handlers.socket_handler('socket', 'test', **args)
+
+        self.assertTrue(callable(emit))
+        mock_SocketHandler.assert_called_once_with(
+            'host', 4005)
+
+
+class DatagramHandlerTest(unittest2.TestCase):
+    def test_arg_types(self):
+        self.assertEqual(handlers.datagram_handler._bark_types,
+                         dict(port=int))
+
+    @mock.patch('logging.handlers.DatagramHandler',
+                return_value=mock.Mock(**{'emit.__name__': 'emit'}))
+    def test_handler(self, mock_DatagramHandler):
+        args = dict(host='host', port=4005)
+        emit = handlers.datagram_handler('datagram', 'test', **args)
+
+        self.assertTrue(callable(emit))
+        mock_DatagramHandler.assert_called_once_with('host', 4005)
+
+
+class SysLogHandlerTest(unittest2.TestCase):
+    def test_arg_types(self):
+        types = handlers.syslog_handler._bark_types
+        self.assertEqual(types.keys(), ['address', 'facility'])
+        self.assertEqual(types['address'], handlers.address)
+        self.assertIsInstance(types['facility'], handlers.argmap)
+        self.assertEqual(types['facility'].argmap,
+                         logging.handlers.SysLogHandler.facility_names)
+
+    @mock.patch('logging.handlers.SysLogHandler',
+                return_value=mock.Mock(**{'emit.__name__': 'emit'}))
+    def test_handler(self, mock_SysLogHandler):
+        args = dict(address='address', facility='facility')
+        emit = handlers.syslog_handler('syslog', 'test', **args)
+
+        self.assertTrue(callable(emit))
+        mock_SysLogHandler.assert_called_once_with(
+            address='address', facility='facility')
+
+
+class NTEventLogHandlerTest(unittest2.TestCase):
+    def test_arg_types(self):
+        types = handlers.nt_event_log_handler._bark_types
+        self.assertEqual(types.keys(), ['logtype'])
+        self.assertIsInstance(types['logtype'], handlers.choice)
+        self.assertEqual(types['logtype'].choices,
+                         set(['Application', 'System', 'Security']))
+
+    @mock.patch('logging.handlers.NTEventLogHandler',
+                return_value=mock.Mock(**{'emit.__name__': 'emit'}))
+    def test_handler(self, mock_NTEventLogHandler):
+        args = dict(appname='appname', dllname='dllname', logtype='logtype')
+        emit = handlers.nt_event_log_handler('nt_event_log', 'test', **args)
+
+        self.assertTrue(callable(emit))
+        mock_NTEventLogHandler.assert_called_once_with(
+            'appname', dllname='dllname', logtype='logtype')
+
+
+class SMTPHandlerTest(unittest2.TestCase):
+    def test_arg_types(self):
+        self.assertEqual(handlers.smtp_handler._bark_types,
+                         dict(mailhost=handlers.address,
+                              toaddrs=handlers.comma,
+                              credentials=handlers.credentials))
+
+    @mock.patch('logging.handlers.SMTPHandler',
+                return_value=mock.Mock(**{'emit.__name__': 'emit'}))
+    def test_handler(self, mock_SMTPHandler):
+        args = dict(mailhost='mailhost', fromaddr='fromaddr',
+                    toaddrs='toaddrs', subject='subject',
+                    credentials='credentials')
+        emit = handlers.smtp_handler('smtp', 'test', **args)
+
+        self.assertTrue(callable(emit))
+        mock_SMTPHandler.assert_called_once_with(
+            'mailhost', 'fromaddr', 'toaddrs', 'subject',
+            credentials='credentials')
+
+
+class HTTPHandlerTest(unittest2.TestCase):
+    def test_arg_types(self):
+        types = handlers.http_handler._bark_types
+        self.assertEqual(types.keys(), ['method'])
+        self.assertIsInstance(types['method'], handlers.choice)
+        self.assertEqual(types['method'].choices, set(['GET', 'POST']))
+
+    @mock.patch('logging.handlers.HTTPHandler',
+                return_value=mock.Mock(**{'emit.__name__': 'emit'}))
+    def test_handler(self, mock_HTTPHandler):
+        args = dict(host='host', url='url', method='method')
+        emit = handlers.http_handler('http', 'test', **args)
+
+        self.assertTrue(callable(emit))
+        mock_HTTPHandler.assert_called_once_with(
+            'host', 'url', method='method')

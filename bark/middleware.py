@@ -20,6 +20,7 @@ import webob.dec
 
 import bark.format
 import bark.handlers
+import bark.proxy
 
 
 LOG = logging.getLogger('bark')
@@ -64,11 +65,15 @@ def bark_filter(global_conf, **local_conf):
     # OK, the configuration is all read; next step is to turn the
     # configuration into logging handlers
     handlers = {}
-    proxies = {}
+    proxies = None
     for sect, sect_dict in sections.items():
         if sect == 'proxies':
             # Reserved for proxy configuration
-            proxies.update(sect_dict)  # XXX need to translate values
+            try:
+                proxies = bark.proxy.ProxyConfig(sect_dict)
+            except KeyError as exc:
+                LOG.warn("Cannot configure proxy handling: option %s is "
+                         "missing from the proxy configuration" % exc)
             continue
 
         # First, determine the logging format
@@ -109,9 +114,11 @@ class BarkMiddleware(object):
         :param app: The WSGI application.
         :param handlers: A dictionary of logging handlers, used to
                          emit the formatted log messages.
-        :param proxies: A dictionary containing proxy IP information,
-                        used to determine the useragent IP address in
-                        the face of proxy forwarding.
+        :param proxies: A ProxyConfig object, containing proxy IP
+                        information.  This is used to determine the
+                        useragent IP address in the face of proxy
+                        forwarding.  If None, proxy handling is
+                        disabled.
         """
 
         self.app = app
@@ -128,7 +135,9 @@ class BarkMiddleware(object):
 
         data = {}
 
-        # XXX Determine the useragent IP
+        # Determine the useragent IP
+        if self.proxies:
+            self.proxies(request)
 
         # Start by preparing all the formatters
         for log, (format, handler) in self.handlers.items():

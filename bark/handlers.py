@@ -382,6 +382,28 @@ def http_handler(name, logname, host, url, method="GET"):
         host, url, method=method))
 
 
+def _lookup_handler(name):
+    """
+    Look up the implementation of a named handler.  Broken out for
+    testing purposes.
+
+    :param name: The name of the handler to look up.
+
+    :returns: A factory function for the log handler.
+    """
+
+    # Look up and load the handler factory
+    for ep in pkg_resources.iter_entry_points('bark.handler', name):
+        try:
+            # Load and return the handler factory
+            return ep.load()
+        except (ImportError, pkg_resources.UnknownExtra):
+            # Couldn't load it...
+            continue
+
+    raise ImportError("Unknown log file handler %r" % name)
+
+
 def get_handler(name, logname, args):
     """
     Retrieve a logger given its name and initialize it by passing it
@@ -397,17 +419,7 @@ def get_handler(name, logname, args):
               logged.
     """
 
-    # Look up and load the handler factory
-    for ep in pkg_resources.iter_entry_points('bark.handler', name):
-        try:
-            # Load the handler factory
-            factory = ep.load()
-            break
-        except (ImportError, pkg_resources.UnknownExtra):
-            # Couldn't load it...
-            continue
-    else:
-        raise ImportError("Unknown log file handler %r" % name)
+    factory = _lookup_handler(name)
 
     # What arguments are we passing to the handler?
     available = set(args.keys())

@@ -54,7 +54,7 @@ def wrap_log_handler(handler):
 
     # Get file name, line number, and function name for
     # middleware.BarkMiddleware.__call__
-    obj = middleware.BarkMiddleware.__call__
+    obj = middleware.BarkMiddleware
     filename = inspect.getsourcefile(obj)
     lineno = inspect.getsourcelines(obj)[1]
     funcname = '__call__'

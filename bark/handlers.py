@@ -438,7 +438,10 @@ def get_handler(name, logname, args):
     recognized = set(argnames)
 
     # Now, which ones are required?
-    required = set(argnames[:len(argnames) - len(argspec.defaults)])
+    if argspec.defaults:
+        required = set(argnames[:len(argnames) - len(argspec.defaults)])
+    else:
+        required = set(argnames)
     missing = required - available
     if missing:
         raise TypeError("Missing required parameters: %s" %

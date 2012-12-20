@@ -18,10 +18,15 @@ import logging.handlers
 import sys
 
 import mock
+import pkg_resources
 import unittest2
 
 from bark import handlers
 from bark import middleware
+
+
+class TestException(Exception):
+    pass
 
 
 class SimpleFormatterTest(unittest2.TestCase):
@@ -374,3 +379,58 @@ class HTTPHandlerTest(unittest2.TestCase):
         self.assertTrue(callable(emit))
         mock_HTTPHandler.assert_called_once_with(
             'host', 'url', method='method')
+
+
+class LookupHandlerTest(unittest2.TestCase):
+    @mock.patch('pkg_resources.iter_entry_points',
+                return_value=[
+                    mock.Mock(**{'load.side_effect': ImportError}),
+                    mock.Mock(**{'load.side_effect': ImportError}),
+                ])
+    def test_error(self, mock_iter_entry_points):
+        self.assertRaises(ImportError, handlers._lookup_handler, 'handler')
+
+        mock_iter_entry_points.assert_called_once_with('bark.handler',
+                                                       'handler')
+        mock_iter_entry_points.return_value[0].load.assert_called_once_with()
+        mock_iter_entry_points.return_value[1].load.assert_called_once_with()
+
+    @mock.patch('pkg_resources.iter_entry_points',
+                return_value=[
+                    mock.Mock(**{
+                        'load.side_effect': pkg_resources.UnknownExtra,
+                    }),
+                    mock.Mock(**{
+                        'load.side_effect': pkg_resources.UnknownExtra,
+                    }),
+                ])
+    def test_unknown_extra(self, mock_iter_entry_points):
+        self.assertRaises(ImportError, handlers._lookup_handler, 'handler')
+
+        mock_iter_entry_points.assert_called_once_with('bark.handler',
+                                                       'handler')
+        mock_iter_entry_points.return_value[0].load.assert_called_once_with()
+        mock_iter_entry_points.return_value[1].load.assert_called_once_with()
+
+    @mock.patch('pkg_resources.iter_entry_points',
+                return_value=[
+                    mock.Mock(**{'load.side_effect': TestException}),
+                    mock.Mock(**{'load.side_effect': TestException}),
+                ])
+    def test_other_exception(self, mock_iter_entry_points):
+        self.assertRaises(TestException, handlers._lookup_handler, 'handler')
+
+        mock_iter_entry_points.assert_called_once_with('bark.handler',
+                                                       'handler')
+        mock_iter_entry_points.return_value[0].load.assert_called_once_with()
+        self.assertFalse(mock_iter_entry_points.return_value[1].load.called)
+
+    @mock.patch('pkg_resources.iter_entry_points',
+                return_value=[mock.Mock(**{'load.return_value': 'fake_hand'})])
+    def test_load(self, mock_iter_entry_points):
+        result = handlers._lookup_handler('handler')
+
+        mock_iter_entry_points.assert_called_once_with('bark.handler',
+                                                       'handler')
+        mock_iter_entry_points.return_value[0].load.assert_called_once_with()
+        self.assertEqual(result, 'fake_hand')

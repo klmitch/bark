@@ -135,7 +135,7 @@ def file_handler(name, logname, filename, mode='a', encoding=None,
     """
 
     return wrap_log_handler(logging.FileHandler(
-            filename, mode=mode, encoding=encoding, delay=delay))
+        filename, mode=mode, encoding=encoding, delay=delay))
 
 
 @arg_types(delay=bool)
@@ -150,7 +150,7 @@ def watched_file_handler(name, logname, filename, mode='a', encoding=None,
     """
 
     return wrap_log_handler(logging.handlers.WatchedFileHandler(
-            filename, mode=mode, encoding=encoding, delay=delay))
+        filename, mode=mode, encoding=encoding, delay=delay))
 
 
 @arg_types(maxBytes=int, backupCount=int, delay=bool)
@@ -165,8 +165,8 @@ def rotating_file_handler(name, logname, filename, mode='a', maxBytes=0,
     """
 
     return wrap_log_handler(logging.handlers.RotatingFileHandler(
-            filename, mode=mode, maxBytes=maxBytes, backupCount=backupCount,
-            encoding=encoding, delay=delay))
+        filename, mode=mode, maxBytes=maxBytes, backupCount=backupCount,
+        encoding=encoding, delay=delay))
 
 
 @arg_types(interval=int, backupCount=int, delay=bool, utc=bool)
@@ -182,8 +182,8 @@ def timed_rotating_file_handler(name, logname, filename, when='h',
     """
 
     return wrap_log_handler(logging.handlers.TimedRotatingFileHandler(
-            filename, when=when, interval=interval, backupCount=backupCount,
-            encoding=encoding, delay=delay, utc=utc))
+        filename, when=when, interval=interval, backupCount=backupCount,
+        encoding=encoding, delay=delay, utc=utc))
 
 
 @arg_types(port=int)
@@ -245,7 +245,7 @@ def syslog_handler(name, logname, address='localhost:514',
     facility = logging.handlers.SysLogHandler.facility_names[facility]
 
     return wrap_log_handler(logging.handlers.SysLogHandler(
-            address=address, facility=facility))
+        address=address, facility=facility))
 
 
 def nt_event_log_handler(name, logname, appname, dllname=None,
@@ -261,7 +261,7 @@ def nt_event_log_handler(name, logname, appname, dllname=None,
         raise ValueError("Unrecognized logtype value %r" % logtype)
 
     return wrap_log_handler(logging.handlers.NTEventLogHandler(
-            appname, dllname=dllname, logtype=logtype))
+        appname, dllname=dllname, logtype=logtype))
 
 
 def smtp_handler(name, logname, mailhost, fromaddr, toaddrs, subject,
@@ -299,7 +299,7 @@ def smtp_handler(name, logname, mailhost, fromaddr, toaddrs, subject,
         credentials = (username, password)
 
     return wrap_log_handler(logging.handlers.SMTPHandler(
-            mailhost, fromaddr, toaddrs, subject, credentials=credentials))
+        mailhost, fromaddr, toaddrs, subject, credentials=credentials))
 
 
 def http_handler(name, logname, host, url, method="GET"):
@@ -311,7 +311,7 @@ def http_handler(name, logname, host, url, method="GET"):
     """
 
     return wrap_log_handler(logging.handlers.HTTPHandler(
-            host, url, method=method))
+        host, url, method=method))
 
 
 def get_handler(name, logname, args):

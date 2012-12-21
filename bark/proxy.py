@@ -272,7 +272,10 @@ class ProxyConfig(object):
             str(pxy) for pxy in proxy_list)
 
         # Finally, update the useragents header
-        request.headers[self.header] = ','.join(useragents)
+        if useragents:
+            request.headers[self.header] = ','.join(useragents)
+        else:
+            del request.headers[self.header]
 
         return True
 

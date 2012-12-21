@@ -207,17 +207,20 @@ class ProxyConfig(object):
         Handle proxy information in the request.
 
         :param request: A Request object.
+
+        :returns: True if a useragent could be computed, False
+                  otherwise.  The return value is solely for testing.
         """
 
         # Does the header exist?  Do we have the client address?
         if (self.header not in request.headers or
                 'REMOTE_ADDR' not in request.environ):
-            return
+            return False
 
         # Parse the REMOTE_ADDR into an address
         proxy_ip = _parse_ip(request.environ['REMOTE_ADDR'])
         if proxy_ip is None:
-            return
+            return False
 
         # First step in proxy calculation is to grab the proxy header
         # value
@@ -225,7 +228,7 @@ class ProxyConfig(object):
                       request.headers[self.header].split(',')]
         useragents = [a for a in useragents if a]
         if not useragents:
-            return
+            return False
 
         # Now, let's build the proxy list
         proxy_list = []
@@ -267,6 +270,8 @@ class ProxyConfig(object):
 
         # Finally, update the useragents header
         request.headers[self.header] = ','.join(useragents)
+
+        return True
 
     def validate(self, proxy_ip, client_ip):
         """

@@ -79,7 +79,7 @@ class Proxy(object):
                                   Defaults to True.
         """
 
-        self.address = netaddr.IPAddress(address)
+        self.address = address
 
         if restrictive:
             # Only allow specifically allowed IPs

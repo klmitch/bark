@@ -43,7 +43,7 @@ def _parse_ip(addr):
 
     # Parse the IP address
     try:
-        address = netaddr.IPAddress(addr)
+        address = netaddr.IPAddress(addr.strip())
     except (ValueError, netaddr.AddrFormatError):
         return None
 

@@ -23,21 +23,21 @@ from bark import proxy
 class ParseIPTest(unittest2.TestCase):
     @mock.patch('netaddr.IPAddress', side_effect=ValueError)
     def test_parse_ip_value_error(self, mock_IPAddress):
-        result = proxy._parse_ip('10.0.0.1')
+        result = proxy._parse_ip(' 10.0.0.1 ')
 
         self.assertEqual(result, None)
         mock_IPAddress.assert_called_once_with('10.0.0.1')
 
     @mock.patch('netaddr.IPAddress', side_effect=netaddr.AddrFormatError)
     def test_parse_ip_addr_format_error(self, mock_IPAddress):
-        result = proxy._parse_ip('10.0.0.1')
+        result = proxy._parse_ip(' 10.0.0.1 ')
 
         self.assertEqual(result, None)
         mock_IPAddress.assert_called_once_with('10.0.0.1')
 
     @mock.patch('netaddr.IPAddress', return_value=mock.Mock(version=4))
     def test_parse_ip_v4(self, mock_IPAddress):
-        result = proxy._parse_ip('10.0.0.1')
+        result = proxy._parse_ip(' 10.0.0.1 ')
 
         self.assertEqual(id(result), id(mock_IPAddress.return_value))
         mock_IPAddress.assert_called_once_with('10.0.0.1')
@@ -48,7 +48,7 @@ class ParseIPTest(unittest2.TestCase):
         'ipv4.side_effect': netaddr.AddrConversionError,
     }))
     def test_parse_ip_v6_pure(self, mock_IPAddress):
-        result = proxy._parse_ip('10.0.0.1')
+        result = proxy._parse_ip(' 10.0.0.1 ')
 
         self.assertEqual(id(result), id(mock_IPAddress.return_value))
         mock_IPAddress.assert_called_once_with('10.0.0.1')
@@ -59,7 +59,7 @@ class ParseIPTest(unittest2.TestCase):
         'ipv4.return_value': 'v4addr',
     }))
     def test_parse_ip_v6_v4(self, mock_IPAddress):
-        result = proxy._parse_ip('10.0.0.1')
+        result = proxy._parse_ip(' 10.0.0.1 ')
 
         self.assertEqual(result, 'v4addr')
         mock_IPAddress.assert_called_once_with('10.0.0.1')
@@ -70,7 +70,7 @@ class ProxyTest(unittest2.TestCase):
     def test_init_restrictive(self):
         pxy = proxy.Proxy('10.0.0.1', restrictive=True)
 
-        self.assertEqual(str(pxy.address), '10.0.0.1')
+        self.assertEqual(pxy.address, '10.0.0.1')
         self.assertFalse('207.97.209.147' in pxy.accepted)
         self.assertFalse('10.0.0.1' in pxy.accepted)
         self.assertFalse('127.0.0.1' in pxy.accepted)
@@ -81,7 +81,7 @@ class ProxyTest(unittest2.TestCase):
     def test_init_internal(self):
         pxy = proxy.Proxy('10.0.0.1', prohibit_internal=False)
 
-        self.assertEqual(str(pxy.address), '10.0.0.1')
+        self.assertEqual(pxy.address, '10.0.0.1')
         self.assertTrue('207.97.209.147' in pxy.accepted)
         self.assertTrue('10.0.0.1' in pxy.accepted)
         self.assertTrue('127.0.0.1' in pxy.accepted)
@@ -92,7 +92,7 @@ class ProxyTest(unittest2.TestCase):
     def test_init_normal(self):
         pxy = proxy.Proxy('10.0.0.1')
 
-        self.assertEqual(str(pxy.address), '10.0.0.1')
+        self.assertEqual(pxy.address, '10.0.0.1')
         self.assertTrue('207.97.209.147' in pxy.accepted)
         self.assertTrue('10.0.0.1' in pxy.accepted)
         self.assertTrue('127.0.0.1' in pxy.accepted)

@@ -223,6 +223,7 @@ class ProxyConfig(object):
         # value
         useragents = [a.strip() for a in
                       request.headers[self.header].split(',')]
+        useragents = [a for a in useragents if a]
         if not useragents:
             return
 

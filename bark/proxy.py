@@ -254,6 +254,9 @@ class ProxyConfig(object):
             # list...
             useragents.pop()
 
+            # The proxy we're now going to test is the useragent
+            proxy_ip = useragent_ip
+
         # At this point, useragents has been stripped of the validated
         # user agents, useragent_ip contains the validated user agent
         # IP, and proxy_list contains a list (ordered right to left)

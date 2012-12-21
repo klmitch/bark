@@ -204,4 +204,84 @@ class ProxyConfig(object):
         :param request: A Request object.
         """
 
-        pass  # XXX
+        # Does the header exist?  Do we have the client address?
+        if (self.header not in request.headers or
+                'REMOTE_ADDR' not in request.environ):
+            return
+
+        # Parse the REMOTE_ADDR into an address
+        proxy_ip = _parse_ip(request.environ['REMOTE_ADDR'])
+        if proxy_ip is None:
+            return
+
+        # First step in proxy calculation is to grab the proxy header
+        # value
+        useragents = [a.strip() for a in
+                      request.headers[self.header].split(',')]
+        if not useragents:
+            return
+
+        # Now, let's build the proxy list
+        proxy_list = []
+        while useragents:
+            # Grab off the last useragent IP
+            useragent_ip = _parse_ip(useragents[-1])
+            if useragent_ip is None:
+                # Not a valid IP address, so use the proxy IP
+                useragent_ip = proxy_ip
+                break
+
+            # See if this proxy can introduce this useragent
+            if not self.validate(proxy_ip, useragent_ip):
+                # Again, not a valid IP address, so use the proxy IP
+                useragent_ip = proxy_ip
+                break
+
+            # OK, it's valid; insert the proxy IP into the proxy
+            # list...
+            proxy_list.insert(0, proxy_ip)
+
+            # Drop the validated useragent IP from the useragents
+            # list...
+            useragents.pop()
+
+        # At this point, useragents has been stripped of the validated
+        # user agents, useragent_ip contains the validated user agent
+        # IP, and proxy_list contains a list (ordered right to left)
+        # of the proxies...update the request to contain all the
+        # information
+
+        # Start with the useragent_ip
+        request.environ['bark.useragent_ip'] = useragent_ip
+
+        # Next, set up the notes and store the proxy-ip-list
+        request.environ.setdefault('bark.notes', {})
+        request.environ['bark.notes']['remoteip-proxy-ip-list'] = ','.join(
+            str(pxy) for pxy in proxy_list)
+
+        # Finally, update the useragents header
+        request.headers[self.header] = ','.join(useragents)
+
+    def validate(self, proxy_ip, client_ip):
+        """
+        Looks up the proxy identified by its IP, then verifies that
+        the given client IP may be introduced by that proxy.
+
+        :param proxy_ip: The IP address of the proxy.
+        :param client_ip: The IP address of the supposed client.
+
+        :returns: True if the proxy is permitted to introduce the
+                  client; False if the proxy doesn't exist or isn't
+                  permitted to introduce the client.
+        """
+
+        # First, look up the proxy
+        if self.pseudo_proxy:
+            proxy = self.pseudo_proxy
+        elif proxy_ip not in self.proxies:
+            return False
+        else:
+            proxy = self.proxies[proxy_ip]
+
+        # Now, verify that the client is valid
+        return proxy.permitted(client_ip)

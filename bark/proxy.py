@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import itertools
 import logging
 
 import netaddr
@@ -28,8 +29,9 @@ _martian = netaddr.IPSet([
     netaddr.ip.IPV6_LOOPBACK,
     netaddr.ip.IPV6_MULTICAST,
 ])
-_internal = netaddr.IPSet(netaddr.ip.IPV4_PRIVATE +
-                          netaddr.ip.IPV6_PRIVATE)
+_internal = netaddr.IPSet(net for net in itertools.chain(
+    netaddr.ip.IPV4_PRIVATE, netaddr.ip.IPV6_PRIVATE)
+    if not isinstance(net, netaddr.IPRange))
 
 
 def _parse_ip(addr):

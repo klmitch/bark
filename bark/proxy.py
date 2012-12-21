@@ -22,16 +22,16 @@ import netaddr
 LOG = logging.getLogger('bark')
 
 
-_martian = netaddr.IPSet([
+_martian = [
     netaddr.ip.IPV4_LOOPBACK,
     netaddr.ip.IPV4_MULTICAST,
     netaddr.ip.IPV4_6TO4,
     netaddr.ip.IPV6_LOOPBACK,
     netaddr.ip.IPV6_MULTICAST,
-])
-_internal = netaddr.IPSet(net for net in itertools.chain(
+]
+_internal = [net for net in itertools.chain(
     netaddr.ip.IPV4_PRIVATE, netaddr.ip.IPV6_PRIVATE)
-    if not isinstance(net, netaddr.IPRange))
+    if not isinstance(net, netaddr.IPRange)]
 
 
 def _parse_ip(addr):
@@ -81,16 +81,19 @@ class Proxy(object):
 
         self.address = netaddr.IPAddress(address)
 
-        # Set up the valid remote IPs
         if restrictive:
-            # Use an empty IPSet
-            self.remotes = netaddr.IPSet()
+            # Only allow specifically allowed IPs
+            self.accepted = netaddr.IPSet()
         else:
-            self.remotes = netaddr.IPSet(['0.0.0.0/0', '::/0']) - _martian
+            # Allow all IPs except those excluded
+            self.accepted = netaddr.IPSet(['0.0.0.0/0', '::/0'])
 
-            # Drop the internal addresses
-            if prohibit_internal:
-                self.remotes -= _internal
+        # Always exclude martians
+        self.excluded = netaddr.IPSet(_martian)
+        if prohibit_internal:
+            # But we allow internals
+            for net in _internal:
+                self.excluded.add(net)
 
     def restrict(self, addr):
         """
@@ -106,7 +109,7 @@ class Proxy(object):
             LOG.warn("Cannot restrict address %r from proxy %s: "
                      "invalid address" % (addr, self.address))
         else:
-            self.remotes.remove(addr)
+            self.excluded.add(addr)
 
     def accept(self, addr):
         """
@@ -122,7 +125,7 @@ class Proxy(object):
             LOG.warn("Cannot add address %r to proxy %s: "
                      "invalid address" % (addr, self.address))
         else:
-            self.remotes.add(addr)
+            self.accepted.add(addr)
 
     def permitted(self, addr):
         """

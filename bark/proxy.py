@@ -32,6 +32,29 @@ _internal = netaddr.IPSet(netaddr.ip.IPV4_PRIVATE +
                           netaddr.ip.IPV6_PRIVATE)
 
 
+def _parse_ip(addr):
+    """
+    Helper function to convert an address into an IPAddress object.
+    Canonicalizes IPv6-mapped (or compatible) IPv4 addresses into IPv4
+    addresses.  Returns None if the address cannot be parsed.
+    """
+
+    # Parse the IP address
+    try:
+        address = netaddr.IPAddress(addr)
+    except (ValueError, netaddr.AddrFormatError):
+        return None
+
+    # Canonicalize it, if possible
+    if address.version == 6:
+        try:
+            return address.ipv4()
+        except netaddr.AddrConversionError:
+            pass
+
+    return address
+
+
 class Proxy(object):
     def __init__(self, address, restrictive=False, prohibit_internal=True):
         """
@@ -76,11 +99,12 @@ class Proxy(object):
         """
 
         # Remove the address from the set
-        try:
-            self.remotes.remove(addr)
-        except (ValueError, netaddr.AddrFormatError):
+        ip_addr = _parse_ip(addr)
+        if ip_addr is None:
             LOG.warn("Cannot restrict address %r from proxy %s: "
                      "invalid address" % (addr, self.address))
+        else:
+            self.remotes.remove(addr)
 
     def accept(self, addr):
         """
@@ -91,11 +115,12 @@ class Proxy(object):
         """
 
         # Add the address to the set
-        try:
-            self.remotes.add(addr)
-        except (ValueError, netaddr.AddrFormatError):
+        ip_addr = _parse_ip(addr)
+        if ip_addr is None:
             LOG.warn("Cannot add address %r to proxy %s: "
                      "invalid address" % (addr, self.address))
+        else:
+            self.remotes.add(addr)
 
     def permitted(self, addr):
         """
@@ -107,19 +132,8 @@ class Proxy(object):
         :returns: True if the address is permitted for this proxy.
         """
 
-        # Test natively first
-        if addr in self.remotes:
-            return True
-
-        # If addr is an IPv6 address, check if there's a v4
-        # representation for it
-        if addr.version == 6:
-            try:
-                return addr.ipv4() in self.remotes
-            except netaddr.AddrConversionError:
-                pass
-
-        return False
+        # Test if address is permitted
+        return addr in self.remotes
 
 
 class ProxyConfig(object):
@@ -161,9 +175,8 @@ class ProxyConfig(object):
                 prohibit_internal = True
 
             # Now create the proxy
-            try:
-                addr = netaddr.IPAddress(pxy_addr)
-            except (ValueError, netaddr.AddrFormatError):
+            addr = _parse_ip(pxy_addr)
+            if addr is None:
                 LOG.warn("Cannot understand proxy IP address %r" % pxy_addr)
                 continue
 

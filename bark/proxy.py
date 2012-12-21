@@ -95,6 +95,19 @@ class Proxy(object):
             for net in _internal:
                 self.excluded.add(net)
 
+    def __contains__(self, addr):
+        """
+        Tests whether an address is permitted for this proxy.
+
+        :param addr: The address to test.  Must be an IPAddress
+                     object.
+
+        :returns: True if the address is permitted for this proxy.
+        """
+
+        # Address must be in accepted and not in excluded
+        return addr in self.accepted and addr not in self.excluded
+
     def restrict(self, addr):
         """
         Drop an address from the set of addresses this proxy is
@@ -126,19 +139,6 @@ class Proxy(object):
                      "invalid address" % (addr, self.address))
         else:
             self.accepted.add(addr)
-
-    def permitted(self, addr):
-        """
-        Tests whether an address is permitted for this proxy.
-
-        :param addr: The address to test.  Must be an IPAddress
-                     object.
-
-        :returns: True if the address is permitted for this proxy.
-        """
-
-        # Test if address is permitted
-        return addr in self.remotes
 
 
 class ProxyConfig(object):
@@ -289,4 +289,4 @@ class ProxyConfig(object):
             proxy = self.proxies[proxy_ip]
 
         # Now, verify that the client is valid
-        return proxy.permitted(client_ip)
+        return client_ip in proxy

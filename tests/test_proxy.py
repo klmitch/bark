@@ -219,3 +219,208 @@ class ProxyConfigTest(unittest2.TestCase):
             mock.call().accept('10.0.1.3'),
             mock.call().restrict('10.0.1.4'),
         ])
+
+    def test_validate_noproxy(self):
+        pc = proxy.ProxyConfig(dict(header=''))
+        pc.pseudo_proxy = None
+        pc.proxies = {
+            '10.0.0.1': ('10.0.1.1', '10.0.1.2', '10.0.1.3'),
+        }
+
+        self.assertEqual(pc.validate('10.0.0.2', '10.0.1.1'), False)
+
+    def test_validate_proxy_noclient(self):
+        pc = proxy.ProxyConfig(dict(header=''))
+        pc.pseudo_proxy = None
+        pc.proxies = {
+            '10.0.0.1': ('10.0.1.1', '10.0.1.2', '10.0.1.3'),
+        }
+
+        self.assertEqual(pc.validate('10.0.0.1', '10.0.1.4'), False)
+
+    def test_validate_proxy_withclient(self):
+        pc = proxy.ProxyConfig(dict(header=''))
+        pc.pseudo_proxy = None
+        pc.proxies = {
+            '10.0.0.1': ('10.0.1.1', '10.0.1.2', '10.0.1.3'),
+        }
+
+        self.assertEqual(pc.validate('10.0.0.1', '10.0.1.3'), True)
+
+    def test_validate_pseudo_proxy_noclient(self):
+        pc = proxy.ProxyConfig(dict(header=''))
+        pc.pseudo_proxy = ('10.0.1.1', '10.0.1.2', '10.0.1.3')
+        pc.proxies = None
+
+        self.assertEqual(pc.validate('10.0.0.1', '10.0.1.4'), False)
+
+    def test_validate_pseudo_proxy_withclient(self):
+        pc = proxy.ProxyConfig(dict(header=''))
+        pc.pseudo_proxy = ('10.0.1.1', '10.0.1.2', '10.0.1.3')
+        pc.proxies = None
+
+        self.assertEqual(pc.validate('10.0.0.1', '10.0.1.3'), True)
+
+    @mock.patch.object(proxy, '_parse_ip')
+    def test_call_noheader(self, mock_parse_ip):
+        pc = proxy.ProxyConfig(dict(header='header'))
+        request = mock.Mock(headers={}, environ=dict(REMOTE_ADDR='10.0.0.1'))
+
+        result = pc(request)
+
+        self.assertEqual(result, False)
+        self.assertFalse(mock_parse_ip.called)
+        self.assertEqual(request.headers, {})
+        self.assertEqual(request.environ, dict(REMOTE_ADDR='10.0.0.1'))
+
+    @mock.patch.object(proxy, '_parse_ip')
+    def test_call_noremote(self, mock_parse_ip):
+        pc = proxy.ProxyConfig(dict(header='header'))
+        request = mock.Mock(headers=dict(header='10.0.1.1'), environ={})
+
+        result = pc(request)
+
+        self.assertEqual(result, False)
+        self.assertFalse(mock_parse_ip.called)
+        self.assertEqual(request.headers, dict(header='10.0.1.1'))
+        self.assertEqual(request.environ, {})
+
+    @mock.patch.object(proxy, '_parse_ip', return_value=None)
+    def test_call_badremote(self, mock_parse_ip):
+        pc = proxy.ProxyConfig(dict(header='header'))
+        request = mock.Mock(
+            headers=dict(header='10.0.1.1'),
+            environ=dict(REMOTE_ADDR='10.0.0.1'),
+        )
+
+        result = pc(request)
+
+        self.assertEqual(result, False)
+        mock_parse_ip.assert_called_once_with('10.0.0.1')
+        self.assertEqual(request.headers, dict(header='10.0.1.1'))
+        self.assertEqual(request.environ, dict(REMOTE_ADDR='10.0.0.1'))
+
+    @mock.patch.object(proxy, '_parse_ip', side_effect=lambda x: x)
+    def test_call_noagents(self, mock_parse_ip):
+        pc = proxy.ProxyConfig(dict(header='header'))
+        request = mock.Mock(
+            headers=dict(header=',,'),
+            environ=dict(REMOTE_ADDR='10.0.0.1'),
+        )
+
+        result = pc(request)
+
+        self.assertEqual(result, False)
+        mock_parse_ip.assert_called_once_with('10.0.0.1')
+        self.assertEqual(request.headers, dict(header=',,'))
+        self.assertEqual(request.environ, dict(REMOTE_ADDR='10.0.0.1'))
+
+    @mock.patch.object(proxy.ProxyConfig, 'validate', return_value=True)
+    @mock.patch.object(proxy, '_parse_ip',
+                       side_effect=lambda x: None if x == 'none' else x)
+    def test_call_bad_agent(self, mock_parse_ip, mock_validate):
+        pc = proxy.ProxyConfig(dict(header='header'))
+        request = mock.Mock(
+            headers=dict(header='10.0.1.1 , 10.0.1.2,none,10.0.1.3,10.0.1.4,'),
+            environ=dict(REMOTE_ADDR='10.0.0.1'),
+        )
+
+        result = pc(request)
+
+        self.assertEqual(result, True)
+        self.assertEqual(mock_parse_ip.call_count, 4)
+        mock_parse_ip.assert_has_calls([
+            mock.call('10.0.0.1'),
+            mock.call('10.0.1.4'),
+            mock.call('10.0.1.3'),
+            mock.call('none'),
+        ])
+        self.assertEqual(mock_validate.call_count, 2)
+        mock_validate.assert_has_calls([
+            mock.call('10.0.0.1', '10.0.1.4'),
+            mock.call('10.0.1.4', '10.0.1.3'),
+        ])
+        self.assertEqual(request.headers,
+                         dict(header='10.0.1.1,10.0.1.2,none'))
+        self.assertEqual(request.environ, {
+            'REMOTE_ADDR': '10.0.0.1',
+            'bark.useragent_ip': '10.0.1.3',
+            'bark.notes': {
+                'remoteip-proxy-ip-list': '10.0.1.4,10.0.0.1',
+            },
+        })
+
+    @mock.patch.object(proxy.ProxyConfig, 'validate',
+                       side_effect=lambda x, y: (False if y == 'invalid'
+                                                 else True))
+    @mock.patch.object(proxy, '_parse_ip', side_effect=lambda x: x)
+    def test_call_invalid_agent(self, mock_parse_ip, mock_validate):
+        pc = proxy.ProxyConfig(dict(header='header'))
+        request = mock.Mock(
+            headers=dict(header=('10.0.1.1 , 10.0.1.2,invalid,'
+                                 '10.0.1.3,10.0.1.4,')),
+            environ=dict(REMOTE_ADDR='10.0.0.1'),
+        )
+
+        result = pc(request)
+
+        self.assertEqual(result, True)
+        self.assertEqual(mock_parse_ip.call_count, 4)
+        mock_parse_ip.assert_has_calls([
+            mock.call('10.0.0.1'),
+            mock.call('10.0.1.4'),
+            mock.call('10.0.1.3'),
+            mock.call('invalid'),
+        ])
+        self.assertEqual(mock_validate.call_count, 3)
+        mock_validate.assert_has_calls([
+            mock.call('10.0.0.1', '10.0.1.4'),
+            mock.call('10.0.1.4', '10.0.1.3'),
+            mock.call('10.0.1.3', 'invalid'),
+        ])
+        self.assertEqual(request.headers,
+                         dict(header='10.0.1.1,10.0.1.2,invalid'))
+        self.assertEqual(request.environ, {
+            'REMOTE_ADDR': '10.0.0.1',
+            'bark.useragent_ip': '10.0.1.3',
+            'bark.notes': {
+                'remoteip-proxy-ip-list': '10.0.1.4,10.0.0.1',
+            },
+        })
+
+    @mock.patch.object(proxy.ProxyConfig, 'validate', return_value=True)
+    @mock.patch.object(proxy, '_parse_ip', side_effect=lambda x: x)
+    def test_call_valid(self, mock_parse_ip, mock_validate):
+        pc = proxy.ProxyConfig(dict(header='header'))
+        request = mock.Mock(
+            headers=dict(header=('10.0.1.1 , 10.0.1.2, 10.0.1.3,10.0.1.4,')),
+            environ=dict(REMOTE_ADDR='10.0.0.1'),
+        )
+
+        result = pc(request)
+
+        self.assertEqual(result, True)
+        self.assertEqual(mock_parse_ip.call_count, 5)
+        mock_parse_ip.assert_has_calls([
+            mock.call('10.0.0.1'),
+            mock.call('10.0.1.4'),
+            mock.call('10.0.1.3'),
+            mock.call('10.0.1.2'),
+            mock.call('10.0.1.1'),
+        ])
+        self.assertEqual(mock_validate.call_count, 4)
+        mock_validate.assert_has_calls([
+            mock.call('10.0.0.1', '10.0.1.4'),
+            mock.call('10.0.1.4', '10.0.1.3'),
+            mock.call('10.0.1.3', '10.0.1.2'),
+            mock.call('10.0.1.2', '10.0.1.1'),
+        ])
+        self.assertEqual(request.headers, {})
+        self.assertEqual(request.environ, {
+            'REMOTE_ADDR': '10.0.0.1',
+            'bark.useragent_ip': '10.0.1.1',
+            'bark.notes': {
+                'remoteip-proxy-ip-list': ('10.0.1.2,10.0.1.3,'
+                                           '10.0.1.4,10.0.0.1'),
+            },
+        })

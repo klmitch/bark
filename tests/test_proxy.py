@@ -156,3 +156,66 @@ class ProxyTest(unittest2.TestCase):
         mock_warn.assert_called_once_with(
             "Cannot add address '207.97.209.147' to proxy 10.0.0.1: "
             "invalid address")
+
+
+class ProxyConfigTest(unittest2.TestCase):
+    def test_init_noheader(self):
+        self.assertRaises(KeyError, proxy.ProxyConfig, {})
+
+    @mock.patch.object(proxy, 'Proxy', side_effect=lambda x: x)
+    def test_init_noproxies(self, mock_Proxy):
+        config = dict(header='x-forwarded-for')
+        pc = proxy.ProxyConfig(config)
+
+        mock_Proxy.assert_called_once_with('0.0.0.0/0')
+        self.assertEqual(pc.header, 'x-forwarded-for')
+        self.assertEqual(pc.proxies, None)
+        self.assertEqual(pc.pseudo_proxy, '0.0.0.0/0')
+
+    @mock.patch.object(proxy, '_parse_ip',
+                       lambda x: None if x == 'none' else x)
+    @mock.patch.object(proxy.LOG, 'warn')
+    @mock.patch.object(proxy, 'Proxy', side_effect=lambda *args: args)
+    def test_init_proxies_basic(self, mock_Proxy, mock_warn):
+        config = dict(
+            header='x-forwarded-for',
+            proxies=('10.0.0.1,none,10.0.0.2, restrict(10.0.0.3) ,'
+                     'internal(10.0.0.4)'),
+        )
+        pc = proxy.ProxyConfig(config)
+
+        mock_Proxy.assert_has_calls([
+            mock.call('10.0.0.1', False, True),
+            mock.call('10.0.0.2', False, True),
+            mock.call('10.0.0.3', True, True),
+            mock.call('10.0.0.4', False, False),
+        ])
+        self.assertEqual(pc.header, 'x-forwarded-for')
+        self.assertEqual(pc.proxies, {
+            '10.0.0.1': ('10.0.0.1', False, True),
+            '10.0.0.2': ('10.0.0.2', False, True),
+            '10.0.0.3': ('10.0.0.3', True, True),
+            '10.0.0.4': ('10.0.0.4', False, False),
+        })
+        self.assertEqual(pc.pseudo_proxy, None)
+        mock_warn.assert_called_once_with(
+            "Cannot understand proxy IP address 'none'")
+
+    @mock.patch.object(proxy, '_parse_ip', lambda x: x)
+    @mock.patch.object(proxy, 'Proxy')
+    def test_init_proxies_rules(self, mock_Proxy):
+        config = {
+            'header': 'x-forwarded-for',
+            'proxies': '10.0.0.1',
+            '10.0.0.1': ('10.0.1.1,10.0.1.2, accept(10.0.1.3), '
+                         'restrict(10.0.1.4)'),
+        }
+        pc = proxy.ProxyConfig(config)
+
+        mock_Proxy.assert_has_calls([
+            mock.call('10.0.0.1', False, True),
+            mock.call().accept('10.0.1.1'),
+            mock.call().accept('10.0.1.2'),
+            mock.call().accept('10.0.1.3'),
+            mock.call().restrict('10.0.1.4'),
+        ])

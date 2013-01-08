@@ -87,19 +87,21 @@ class BarkMiddlewareTest(unittest2.TestCase):
 
 
 class BarkFilterTest(unittest2.TestCase):
+    @mock.patch.object(middleware.LOG, 'warn')
     @mock.patch('ConfigParser.SafeConfigParser')
     @mock.patch('bark.proxy.ProxyConfig')
     @mock.patch('bark.format.Format.parse')
     @mock.patch('bark.handlers.get_handler')
     @mock.patch.object(middleware, 'BarkMiddleware', return_result='mid')
     def test_noconf(self, mock_BarkMiddleware, mock_get_handler, mock_parse,
-                    mock_ProxyConfig, mock_SafeConfigParser):
+                    mock_ProxyConfig, mock_SafeConfigParser, mock_warn):
         filt = middleware.bark_filter({})
 
         self.assertFalse(mock_SafeConfigParser.called)
         self.assertFalse(mock_ProxyConfig.called)
         self.assertFalse(mock_parse.called)
         self.assertFalse(mock_get_handler.called)
+        self.assertFalse(mock_warn.called)
         self.assertFalse(mock_BarkMiddleware.called)
 
         mid = filt('app')

@@ -92,7 +92,7 @@ class BarkFilterTest(unittest2.TestCase):
     @mock.patch('bark.proxy.ProxyConfig')
     @mock.patch('bark.format.Format.parse')
     @mock.patch('bark.handlers.get_handler')
-    @mock.patch.object(middleware, 'BarkMiddleware', return_result='mid')
+    @mock.patch.object(middleware, 'BarkMiddleware', return_value='mid')
     def test_noconf(self, mock_BarkMiddleware, mock_get_handler, mock_parse,
                     mock_ProxyConfig, mock_SafeConfigParser, mock_warn):
         filt = middleware.bark_filter({})
@@ -107,3 +107,4 @@ class BarkFilterTest(unittest2.TestCase):
         mid = filt('app')
 
         mock_BarkMiddleware.assert_called_once_with('app', {}, None)
+        self.assertEqual(mid, 'mid')

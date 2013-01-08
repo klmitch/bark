@@ -74,7 +74,7 @@ def bark_filter(global_conf, **local_conf):
             except KeyError as exc:
                 LOG.warn("Cannot configure proxy handling: option %s is "
                          "missing from the proxy configuration" % exc)
-            continue
+            continue  # Pragma: nocover
 
         # First, determine the logging format
         try:

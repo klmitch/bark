@@ -42,7 +42,7 @@ class SimpleFormatterTest(unittest2.TestCase):
 
 class WrapLogHandlerTest(unittest2.TestCase):
     @mock.patch.object(handlers, 'SimpleFormatter', return_value='simple')
-    @mock.patch('inspect.getsourcefile', return_value='bark/middleware.py')
+    @mock.patch('inspect.getsourcefile', return_value='bark/handlers.py')
     @mock.patch('inspect.getsourcelines', return_value=([], 127))
     def test_wrap_log_handler(self, mock_getsourcelines, mock_getsourcefile,
                               mock_SimpleFormatter):
@@ -60,13 +60,13 @@ class WrapLogHandlerTest(unittest2.TestCase):
         record = handler.emit.call_args[0][0]
         self.assertEqual(record.name, 'bark')
         self.assertEqual(record.levelno, logging.INFO)
-        self.assertEqual(record.filename, 'middleware.py')
-        self.assertEqual(record.module, 'middleware')
+        self.assertEqual(record.filename, 'handlers.py')
+        self.assertEqual(record.module, 'handlers')
         self.assertEqual(record.lineno, 127)
         self.assertEqual(record.msg, 'test message')
         self.assertEqual(record.args, ())
         self.assertEqual(record.exc_info, None)
-        self.assertEqual(record.funcName, '__call__')
+        self.assertEqual(record.funcName, 'wrap_log_handler')
 
 
 class ArgTypesTest(unittest2.TestCase):

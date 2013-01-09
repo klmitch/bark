@@ -21,8 +21,6 @@ import sys
 
 import pkg_resources
 
-from bark import middleware
-
 
 LOG = logging.getLogger('bark')
 
@@ -53,11 +51,11 @@ def wrap_log_handler(handler):
     handler.setFormatter(SimpleFormatter())
 
     # Get file name, line number, and function name for
-    # middleware.BarkMiddleware.__call__
-    obj = middleware.BarkMiddleware
+    # wrap_log_handler()
+    obj = wrap_log_handler
     filename = inspect.getsourcefile(obj)
     lineno = inspect.getsourcelines(obj)[1]
-    funcname = '__call__'
+    funcname = 'wrap_log_handler'
 
     @functools.wraps(handler.emit)
     def wrapper(msg):

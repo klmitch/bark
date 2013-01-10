@@ -20,6 +20,7 @@ import unittest2
 import webob
 import webob.dec
 
+from bark import format
 from bark import middleware
 
 
@@ -92,6 +93,7 @@ class BarkFunctionTest(unittest2.TestCase):
     def tearDown(self):
         MemoryHandler.clear()
 
+    @mock.patch.dict(format.Format._conversion_cache)
     def test_basic(self):
         stack = construct(basic="%m %U%q %H -> %s %B")
         req = webob.Request.blank('/sample/path?i=j')

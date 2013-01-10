@@ -376,6 +376,112 @@ GET or POST request to web server.  Compatible with `HTTPHandler`_.
     Optional.  The HTTP method to use to submit the log message.  May
     be either "GET" or "POST".  Defaults to "GET".
 
+Proxy Configuration
+-------------------
+
+The "%a" format string conversion specification allows for Bark to log
+the IP address of a client connection.  However, what happens if the
+connection is redirected through a proxy?  Proxies usually embed
+information about the original client connection in a request header,
+such as the "X-Forwarded-For" header, so the information is available.
+However, to prevent a user from spoofing the originating IP address,
+this header must be validated.
+
+Bark includes a proxy validation system, which can be configured
+through the special ``[proxies]`` section of the configuration.  This
+section contains one required configuration setting, namely,
+``header``; this configuration tells Bark which header to use (e.g.,
+"X-Forwarded-For").
+
+If ``header`` is the only configuration value set, then that header
+will be trusted for all connections, which is obviously a security
+problem.  To combat this, the list of trusted proxy IP addresses may
+be specified through the ``proxies`` configuration value, which must
+be a comma-separated list of IP addresses (note: not hostnames!).
+
+Each proxy may be further restricted as to the IP addresses of the
+clients it may introduce.  To do this, use the IP address of the proxy
+as a configuration key; the value must be a comma-separated list of IP
+addresses or CIDR expressions which that proxy is permitted to
+introduce clients from.
+
+For more advanced users, there are some advanced ways of expressing
+proxies and permitted client addresses.  By default, no proxy may
+introduce a client from an internal address (e.g., 10.0.5.23), but is
+allowed to introduce a client from any public address; this may be
+modified by using the "internal()" modifier, which allows internal
+addresses, or the "restrict()" modifier, which requires that an IP
+address be specifically permitted to a proxy to allow it to introduce
+a client from that address.  For instance, consider the following
+configuration::
+
+    [proxies]
+    header = x-forwarded-for
+    proxies = 10.5.21.1
+
+In this configuration, the proxy 10.5.21.1 may introduce a client
+from, say, 207.97.209.147; however, a client from 10.3.15.127 may not
+be introduced.  If we wish to allow this proxy to introduce
+10.3.15.127, we would need the following configuration::
+
+    [proxies]
+    header = x-forwarded-for
+    proxies = internal(10.5.21.1)
+
+If, on the other hand, the proxy 10.5.21.1 should only be able to
+introduce clients from 10.3.15.0/24, and not be permitted to introduce
+a client from 207.97.209.147, this is the configuration we would
+need::
+
+    [proxies]
+    header = x-forwarded-for
+    proxies = restrict(10.5.21.1)
+    10.5.21.1 = 10.3.15.0/24
+
+Note that one cannot simply add an internal IP range to a
+non-restricted proxy entry.  That is, this configuration would **not**
+allow clients from 10.3.15.0/24 to be introduced via 10.5.21.1::
+
+    [proxies]
+    header = x-forwarded-for
+    proxies = 10.5.21.1
+    10.5.21.1 = 10.3.15.0/24
+
+There is one more important point in the configuration of proxies.  It
+is possible to prohibit proxies from introducing certain IP addresses,
+by using the "restrict()" modifier on the CIDR list.  (The converse,
+"accept()", exists, but is no different from listing a bare address.)
+For instance, we can use "internal(10.5.21.1)" to allow the
+introduction of clients from local addresses, but prohibit clients
+from being introduced from some of those ranges.  For instance, let's
+allow 10.5.21.1 to introduce internal clients, but prohibit
+introduction of clients from the ranges 10.5.0.0/16 and 10.3.15.0/24::
+
+    [proxies]
+    header = x-forwarded-for
+    proxies = internal(10.5.21.1)
+    10.5.21.1 = restrict(10.5.0.0/16), restrict(10.3.15.0/24)
+
+Modifications to the request environment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If Bark's proxy system is enabled, and a client is introduced from a
+proxy, the ``REMOTE_ADDR`` key in the WSGI environment is *not*
+altered; rather, the verified client's IP address will be present in
+the WSGI environment key ``bark.useragent_ip``.  Additionally, a
+comma-separated list of the verified proxies will be present in a
+dictionary stored in the WSGI environment key ``bark.notes``; the
+dictionary key containing this list of proxy IP addresses is
+``remoteip-proxy-ip-list``.  (The ``bark.notes`` dictionary is
+provided for the "%n" format string conversion, and is provided for
+compatibility with Apache's method of presenting this information.  To
+include this data in a log message, one would use
+"%{remoteip-proxy-ip-list}n" in the format string.)  The proxy
+verification system *does* alter the proxy header, however; the header
+may be removed if all IP addresses listed are valid proxies, otherwise
+it will contain a comma-separated list of those IP addresses which
+could not be validated as proxies.
+
 .. _PIP: http://www.pip-installer.org/en/latest/index.html
 .. _TimedRotatingFileHandler: http://docs.python.org/2/library/logging.handlers.html#timedrotatingfilehandler
 .. _SocketHandler: http://docs.python.org/2/library/logging.handlers.html#sockethandler

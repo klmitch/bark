@@ -827,4 +827,4 @@ class WSGIEnvironmentConversion(Conversion):
                   conversion.
         """
 
-        return self.escape(request.environ.get(self.modifier.param, '-'))
+        return self.escape(str(request.environ.get(self.modifier.param, '-')))

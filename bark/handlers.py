@@ -323,7 +323,7 @@ def datagram_handler(name, logname, host, port):
 @arg_types(address=address,
            facility=argmap(logging.handlers.SysLogHandler.facility_names))
 def syslog_handler(name, logname, address=('localhost', 514),
-                   facility='user'):
+                   facility=logging.handlers.SysLogHandler.LOG_USER):
     """
     A Bark logging handler logging output to syslog.  By default,
     sends log messages to localhost on port 514; if this logger

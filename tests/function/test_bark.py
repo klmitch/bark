@@ -102,3 +102,72 @@ class BarkFunctionTest(unittest2.TestCase):
         msgs = MemoryHandler.get('basic')
 
         self.assertEqual(msgs, ['GET /sample/path?i=j HTTP/1.0 -> 200 19'])
+
+    @mock.patch.dict(format.Format._conversion_cache)
+    def test_proxy(self):
+        proxies = {
+            'header': 'X-FORWARDED-FOR',
+            'proxies': 'internal(10.5.23.18)',
+        }
+        stack = construct(proxies=proxies, proxy="%a %{c}a")
+
+        req = webob.Request.blank('/sample/path?i=j')
+        resp = req.get_response(stack)
+
+        msgs = MemoryHandler.get('proxy')
+        MemoryHandler.clear('proxy')
+
+        self.assertEqual(msgs, ['- -'])
+
+        req = webob.Request.blank('/sample/path?i=j')
+        req.environ['REMOTE_ADDR'] = '10.3.21.18'
+        resp = req.get_response(stack)
+
+        msgs = MemoryHandler.get('proxy')
+        MemoryHandler.clear('proxy')
+
+        self.assertEqual(msgs, ['10.3.21.18 10.3.21.18'])
+
+        req = webob.Request.blank('/sample/path?i=j')
+        req.environ['REMOTE_ADDR'] = '10.3.21.18'
+        req.headers['x-forwarded-for'] = '10.5.23.18'
+        resp = req.get_response(stack)
+
+        msgs = MemoryHandler.get('proxy')
+        MemoryHandler.clear('proxy')
+
+        self.assertEqual(msgs, ['10.3.21.18 10.3.21.18'])
+
+        req = webob.Request.blank('/sample/path?i=j')
+        req.environ['REMOTE_ADDR'] = '10.5.23.18'
+        req.headers['x-forwarded-for'] = '10.3.21.18'
+        resp = req.get_response(stack)
+
+        msgs = MemoryHandler.get('proxy')
+        MemoryHandler.clear('proxy')
+
+        self.assertEqual(msgs, ['10.3.21.18 10.5.23.18'])
+
+    @mock.patch.dict(format.Format._conversion_cache)
+    def test_proxy_chain(self):
+        proxies = {
+            'header': 'X-Forwarded-For',
+            'proxies': ('internal(10.5.23.1), internal(10.5.23.2), '
+                        'internal(10.5.23.3), internal(10.5.23.4)'),
+        }
+        stack = construct(proxies=proxies,
+                          chain=("%a %{c}a %{remoteip-proxy-ip-list}n "
+                                 "%{x-forwarded-for}i"))
+
+        req = webob.Request.blank('/sample/path?i=j')
+        req.environ['REMOTE_ADDR'] = '10.5.23.1'
+        req.headers['x-forwarded-for'] = (
+            '10.5.23.7,10.5.23.6,10.5.23.5,10.5.23.4,10.5.23.3,10.5.23.2')
+        resp = req.get_response(stack)
+
+        msgs = MemoryHandler.get('chain')
+
+        self.assertEqual(msgs, [
+            '10.5.23.5 10.5.23.1 10.5.23.4,10.5.23.3,10.5.23.2,10.5.23.1 '
+            '10.5.23.7,10.5.23.6'
+        ])

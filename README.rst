@@ -482,6 +482,118 @@ may be removed if all IP addresses listed are valid proxies, otherwise
 it will contain a comma-separated list of those IP addresses which
 could not be validated as proxies.
 
+Log Format Strings
+==================
+
+All log streams must have a ``format`` configuration value, as
+described above.  This format string is compatible with the `Apache
+log module`_, with some minor differences.  For instance, the "%l",
+"%L", "%R", and "%X" conversions always format as a "-", since those
+values are generally not available in WSGI; additionally, the "%k"
+conversion always formats as a "0", since again keep-alive information
+is generally not available in WSGI.  Bark also adds the "%w"
+conversion, which allows formatting of any WSGI environment variable.
+As an example, the conversion "%{wsgi.version}w" would format as "(1,
+0)".  Finally, note that all the modifiers permitted for Apache
+conversions are recognized by Bark; however, the modifiers "<" and ">"
+have no meaning.
+
+Extending Bark
+==============
+
+Bark uses the ``pkg_resources`` package (part of setuptools) to look
+up conversions and log stream types.  This allows for easily extending
+Bark to allow for new conversions or log stream types.
+
+Adding New Conversions
+----------------------
+
+To add a new conversion, subclass the ``bark.conversions.Conversion``
+abstract class.  The subclass must define a ``convert()`` method,
+taking as arguments a ``webob.Request`` object, a ``webob.Response``
+object, and arbitrary data (more on this argument in a moment).  The
+return value of the ``convert()`` method must be the string to
+substitute for the conversion.
+
+Some conversions need to initialize data before the request is
+processed; examples are "%D" and "%T", which time the processing of a
+request, and "%t", which formats the start time of a request.  For
+extension conversions that require such preparation, override the
+``prepare()`` method.  This method takes a single argument--a
+``webob.Request`` object--and return a dictionary containing arbitrary
+data.  This return value will be presented to the ``convert()`` method
+as its third argument.  (The default implementation of ``prepare()``
+simply returns an empty dictionary.)
+
+The conversion must then be listed as a member of the
+``bark.conversion`` entry point group.  Of course, single characters
+may be used, as for the standard conversions; however, it is
+encouraged to use descriptive names for extension conversions.  An
+extension to Bark's parsing of format strings allows for
+multicharacter conversion names to be specified by enclosing them in
+parentheses.  As an example, consider defining an entry point for
+Bark's existing ``TimeConversion`` class, under the multicharacter
+name "time"; the entry point would be defined as follows::
+
+    'bark.conversion': [
+        'time = bark.conversions:TimeConversion',
+    ]
+
+To specify that this time conversion be used with an ISO-8601
+compliant time format, the format conversion would be:
+"%{%Y-%m-%dT%H:%M:%SZ}(time)".
+
+Adding New Log Stream Types
+---------------------------
+
+To add a new log stream type, create a factory for configuring the log
+stream type.  This factory could be a function which returns a
+callable of one argument, or it could be a class with ``__init__()``
+conforming to the factory function interface and ``__call__()`` taking
+a single argument; in either case, what matters is that the return
+value of calling the factory must be a callable of one argument.  This
+callable will be passed a string--the formatted message--and must emit
+the string to the appropriate log message handler.
+
+All of these log stream type factories are passed a minimum of two
+arguments: the name of the log stream type (e.g., "null", "file",
+etc.) and the name of the configuration file section in which it is
+used.  (All the predefined log stream types ignore this argument, but
+extension stream types are welcome to make use of it.)  All remaining
+arguments will be drawn from the configuration, and arguments which
+have no defined default will be required configuration options.
+
+When a log stream type factory is called, all the arguments will be
+passed as simple string values, straight from the configuration.
+However, it is possible to designate certain arguments as being
+certain types, in which case those arguments will be converted before
+calling the factory.  For instance, consider the socket factory, which
+is defined as follows::
+
+    @arg_types(port=int)
+    def socket_handler(name, logname, host, port):
+        return wrap_log_handler(logging.handlers.SocketHandler(host, port))
+
+The decorator ``@bark.handlers.arg_types()`` takes keyword arguments,
+mapping argument names to callables which can convert a string into
+the expected value.  If this callable raises a ``ValueError``, as the
+``int`` callable may, that error will be logged and that log stream
+will be skipped.  This can also be used to validate argument values,
+such as with the special ``bark.handlers.choice()`` class, which
+demands that the string be one of the ones specified; if it does not
+match, ``choice()`` raises a ``ValueError``.
+
+Finally, note the ``bark.handlers.wrap_log_handler()`` function; this
+function takes an instance of a ``logging.Handler`` class and returns
+a callable which uses that class to emit a log message via that
+handler.  All of the standard log stream types, with the exception of
+the ``null`` log stream type, use standard ``logging.Handler``
+instances to perform the actual logging.
+
+Once a log stream type factory has been created, it then must be
+listed as a member of the ``bark.handler`` entry point group.  The
+name will then be recognized as a valid log stream type.
+
 .. _PIP: http://www.pip-installer.org/en/latest/index.html
 .. _TimedRotatingFileHandler: http://docs.python.org/2/library/logging.handlers.html#timedrotatingfilehandler
 .. _SocketHandler: http://docs.python.org/2/library/logging.handlers.html#sockethandler
@@ -489,3 +601,4 @@ could not be validated as proxies.
 .. _NTEventLogHandler: http://docs.python.org/2/library/logging.handlers.html#nteventloghandler
 .. _SMTPHandler: http://docs.python.org/2/library/logging.handlers.html#smtphandler
 .. _HTTPHandler: http://docs.python.org/2/library/logging.handlers.html#httphandler
+.. _Apache log module: http://httpd.apache.org/docs/2.4/mod/mod_log_config.html#formats

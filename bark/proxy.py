@@ -264,7 +264,7 @@ class ProxyConfig(object):
         # information
 
         # Start with the useragent_ip
-        request.environ['bark.useragent_ip'] = useragent_ip
+        request.environ['bark.useragent_ip'] = str(useragent_ip)
 
         # Next, set up the notes and store the proxy-ip-list
         request.environ.setdefault('bark.notes', {})

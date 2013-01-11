@@ -31,7 +31,7 @@ setup(
     long_description=readfile('README.rst'),
     license='Apache License (2.0)',
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'License :: OSI Approved :: Apache Software License',
         'Environment :: Web Environment',
         'Intended Audience :: System Administrators',

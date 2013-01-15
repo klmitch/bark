@@ -747,7 +747,7 @@ class TimeConversion(Conversion):
 
         # Next, determine the format to use
         if fmtstr is None:
-            fmtstr = "[%d/%b/%Y:%H:%M:%S %z]"
+            fmtstr = "[%d/%b/%Y:%H:%M:%S +0000]"
         elif fmtstr in ('sec', 'msec', 'usec', 'msec_frac', 'usec_frac'):
             mult = 1
             fld_len = 0
